@@ -47,31 +47,33 @@ templates = Jinja2Templates(directory='templates')
 # ── 딜 목록 ──────────────────────────────────────────────────────────────────
 
 PIPELINE_STAGES = ['REVIEWING', 'REPLIED', 'NEGOTIATING', 'QUOTED', 'CONTRACTING', 'SIGNED', 'CLOSED_WON']
+ACTIVE_STAGES   = {'REVIEWING', 'REPLIED', 'NEGOTIATING', 'QUOTED', 'CONTRACTING', 'SIGNED'}
+
+def _base_ctx(request: Request) -> dict:
+    """모든 라우트에 공통으로 넘기는 사이드바용 컨텍스트."""
+    return {'request': request, 'stage_counts': db.get_stage_counts()}
 
 @app.get('/', response_class=HTMLResponse)
-async def dashboard(request: Request):
-    deals       = db.get_all_deals()
+async def dashboard(request: Request, stage: str = None):
     stage_counts = db.get_stage_counts()
+    all_deals    = db.get_all_deals()
     action_deals = db.get_action_needed()
 
-    active_stages = {'REVIEWING', 'REPLIED', 'NEGOTIATING', 'QUOTED', 'CONTRACTING', 'SIGNED'}
-    total       = len(deals)
-    active      = sum(stage_counts.get(s, 0) for s in active_stages)
-    closed_won  = stage_counts.get('CLOSED_WON', 0)
-    needs_action = len(action_deals)
+    deals = [d for d in all_deals if d['stage'] == stage] if stage else all_deals
 
     pipeline = [{'stage': s, 'count': stage_counts.get(s, 0)} for s in PIPELINE_STAGES]
 
     return templates.TemplateResponse('dashboard.html', {
-        'request':      request,
+        **_base_ctx(request),
         'deals':        deals,
         'action_deals': action_deals,
         'pipeline':     pipeline,
+        'active_stage': stage,
         'stats': {
-            'total':        total,
-            'active':       active,
-            'closed_won':   closed_won,
-            'needs_action': needs_action,
+            'total':        len(all_deals),
+            'active':       sum(stage_counts.get(s, 0) for s in ACTIVE_STAGES),
+            'closed_won':   stage_counts.get('CLOSED_WON', 0),
+            'needs_action': len(action_deals),
         },
     })
 
@@ -84,7 +86,7 @@ async def deal_detail(request: Request, deal_id: str):
         return HTMLResponse('딜을 찾을 수 없습니다', status_code=404)
     return templates.TemplateResponse(
         'deal_detail.html',
-        {'request': request, 'deal': deal, 'stage_options': STAGE_OPTIONS},
+        {**_base_ctx(request), 'deal': deal, 'stage_options': STAGE_OPTIONS},
     )
 
 # ── Stage 변경 ────────────────────────────────────────────────────────────────
