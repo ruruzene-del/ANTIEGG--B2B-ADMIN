@@ -9,9 +9,13 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-GMAIL_ADDRESS = os.getenv('GMAIL_ADDRESS', '')
-GMAIL_APP_PASSWORD = os.getenv('GMAIL_APP_PASSWORD', '')
-B2B_LABEL = os.getenv('B2B_LABEL', 'B2B_INQUIRY')
+def _creds() -> tuple[str, str, str]:
+    load_dotenv(override=True)
+    return (
+        os.getenv('GMAIL_ADDRESS', ''),
+        os.getenv('GMAIL_APP_PASSWORD', ''),
+        os.getenv('B2B_LABEL', 'B2B_INQUIRY'),
+    )
 
 def _decode_header_str(value: str) -> str:
     parts = decode_header(value or '')
@@ -44,19 +48,19 @@ def _get_body(msg) -> str:
 
 def fetch_new_emails() -> list:
     """B2B_INQUIRY 레이블의 UNSEEN 메일 목록 반환."""
-    if not GMAIL_ADDRESS or not GMAIL_APP_PASSWORD:
+    addr, pwd, label = _creds()
+    if not addr or not pwd:
         print('[IMAP] GMAIL_ADDRESS / GMAIL_APP_PASSWORD 미설정 — 스킵')
         return []
 
     results = []
     try:
         mail = imaplib.IMAP4_SSL('imap.gmail.com')
-        mail.login(GMAIL_ADDRESS, GMAIL_APP_PASSWORD)
+        mail.login(addr, pwd)
 
-        # Gmail 레이블을 IMAP 폴더로 선택
-        status, _ = mail.select(f'"{B2B_LABEL}"')
+        status, _ = mail.select(f'"{label}"')
         if status != 'OK':
-            print(f'[IMAP] 레이블 "{B2B_LABEL}" 없음 — INBOX 사용')
+            print(f'[IMAP] 레이블 "{label}" 없음 — INBOX 사용')
             mail.select('INBOX')
 
         _, uid_data = mail.uid('search', None, 'UNSEEN')
@@ -85,15 +89,16 @@ def fetch_new_emails() -> list:
     return results
 
 def send_email(to: str, subject: str, body: str):
-    if not GMAIL_ADDRESS or not GMAIL_APP_PASSWORD:
+    addr, pwd, _ = _creds()
+    if not addr or not pwd:
         raise RuntimeError('GMAIL_ADDRESS / GMAIL_APP_PASSWORD 미설정')
 
     msg = MIMEMultipart()
-    msg['From'] = GMAIL_ADDRESS
+    msg['From'] = addr
     msg['To'] = to
     msg['Subject'] = subject
     msg.attach(MIMEText(body, 'plain', 'utf-8'))
 
     with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
-        server.login(GMAIL_ADDRESS, GMAIL_APP_PASSWORD)
+        server.login(addr, pwd)
         server.send_message(msg)
