@@ -1,0 +1,13 @@
+.env
+b2b.db
+output/
+models/
+__pycache__/
+*.pyc
+.venv/
+venv/
+.DS_Store
+*.dmg
+*.log
+app.log
+llama-server.log

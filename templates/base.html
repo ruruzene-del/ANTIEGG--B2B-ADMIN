@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}ANTIEGG B2B{% endblock %}</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; background: #f5f5f5; color: #222; }
+    a { color: #2563eb; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .nav { background: #111; color: #fff; padding: 12px 24px; display: flex; align-items: center; gap: 16px; }
+    .nav a { color: #ccc; font-size: 13px; }
+    .nav a:hover { color: #fff; text-decoration: none; }
+    .nav-brand { font-weight: 700; font-size: 15px; color: #fff; }
+
+    .container { max-width: 1100px; margin: 24px auto; padding: 0 16px; }
+
+    .card { background: #fff; border-radius: 8px; border: 1px solid #e5e7eb; padding: 20px; margin-bottom: 16px; }
+    .card-title { font-size: 15px; font-weight: 600; margin-bottom: 12px; color: #111; }
+
+    table { width: 100%; border-collapse: collapse; }
+    th { background: #f9fafb; text-align: left; padding: 10px 12px; font-size: 12px; font-weight: 600; color: #6b7280; border-bottom: 1px solid #e5e7eb; }
+    td { padding: 10px 12px; border-bottom: 1px solid #f3f4f6; vertical-align: middle; }
+    tr:last-child td { border-bottom: none; }
+    tr:hover td { background: #fafafa; }
+
+    .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+    .badge-reviewing   { background: #dbeafe; color: #1d4ed8; }
+    .badge-replied     { background: #d1fae5; color: #065f46; }
+    .badge-negotiating { background: #fef9c3; color: #854d0e; }
+    .badge-quoted      { background: #ffedd5; color: #9a3412; }
+    .badge-contracting { background: #ede9fe; color: #6d28d9; }
+    .badge-signed      { background: #d1fae5; color: #065f46; }
+    .badge-closed_won  { background: #166534; color: #fff; }
+    .badge-knock_reply { background: #fee2e2; color: #991b1b; }
+    .badge-knock_quote { background: #fee2e2; color: #991b1b; }
+    .badge-closed_lost { background: #374151; color: #fff; }
+    .badge-inquiry     { background: #f3f4f6; color: #374151; }
+
+    .btn { display: inline-block; padding: 7px 14px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; }
+    .btn-primary  { background: #2563eb; color: #fff; }
+    .btn-primary:hover { background: #1d4ed8; }
+    .btn-green    { background: #16a34a; color: #fff; }
+    .btn-green:hover { background: #15803d; }
+    .btn-orange   { background: #ea580c; color: #fff; }
+    .btn-orange:hover { background: #c2410c; }
+    .btn-purple   { background: #7c3aed; color: #fff; }
+    .btn-purple:hover { background: #6d28d9; }
+    .btn-red      { background: #dc2626; color: #fff; }
+    .btn-red:hover { background: #b91c1c; }
+    .btn-gray     { background: #e5e7eb; color: #374151; }
+    .btn-gray:hover { background: #d1d5db; }
+
+    label { display: block; font-size: 12px; font-weight: 600; color: #6b7280; margin-bottom: 4px; }
+    input[type=text], select, textarea {
+      width: 100%; padding: 7px 10px; border: 1px solid #d1d5db;
+      border-radius: 6px; font-size: 13px; font-family: inherit;
+    }
+    textarea { resize: vertical; min-height: 100px; }
+    input[type=text]:focus, select:focus, textarea:focus {
+      outline: none; border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37,99,235,.15);
+    }
+
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+    .field { margin-bottom: 10px; }
+    .field-value { font-size: 13px; color: #111; padding: 6px 0; }
+
+    .trigger-bar { display: flex; gap: 8px; flex-wrap: wrap; }
+    .trigger-bar form { display: inline; }
+  </style>
+</head>
+<body>
+  <nav class="nav">
+    <span class="nav-brand">ANTIEGG B2B</span>
+    <a href="/">딜 목록</a>
+  </nav>
+  <div class="container">
+    {% block content %}{% endblock %}
+  </div>
+</body>
+</html>

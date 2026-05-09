@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block title %}{{ deal.deal_id }} — ANTIEGG B2B{% endblock %}
+
+{% block content %}
+
+{# ── 헤더 ── #}
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+  <div>
+    <div style="font-size:12px; color:#6b7280; margin-bottom:4px;"><a href="/">← 딜 목록</a></div>
+    <h1 style="font-size:18px; font-weight:700;">{{ deal.deal_id }} — {{ deal.company or '회사명 미상' }}</h1>
+  </div>
+  <span class="badge badge-{{ deal.stage|lower|replace('_','-') if deal.stage else 'inquiry' }}" style="font-size:13px; padding:4px 12px;">
+    {{ deal.stage or 'INQUIRY' }}
+  </span>
+</div>
+
+{# ── 액션 버튼 ── #}
+<div class="card">
+  <div class="card-title">액션</div>
+  <div class="trigger-bar">
+    <form method="post" action="/deals/{{ deal.deal_id }}/trigger/reply-send">
+      <button class="btn btn-primary" type="submit"
+        {% if deal.trigger_reply_send not in ('IDLE', 'ERROR') %}disabled title="{{ deal.trigger_reply_send }}"{% endif %}>
+        ✉️ 1차 회신 발송
+        {% if deal.trigger_reply_send == 'PENDING' %} (대기중)
+        {% elif deal.trigger_reply_send == 'PROCESSING' %} (처리중)
+        {% elif deal.trigger_reply_send == 'DONE' %} (완료)
+        {% elif deal.trigger_reply_send == 'ERROR' %} (오류)
+        {% endif %}
+      </button>
+    </form>
+    <form method="post" action="/deals/{{ deal.deal_id }}/trigger/quote-gen">
+      <button class="btn btn-green" type="submit"
+        {% if deal.trigger_quote_gen not in ('IDLE', 'ERROR') %}disabled{% endif %}>
+        📄 견적서 생성
+      </button>
+    </form>
+    <form method="post" action="/deals/{{ deal.deal_id }}/trigger/contract-gen">
+      <button class="btn btn-orange" type="submit"
+        {% if deal.trigger_contract_gen not in ('IDLE', 'ERROR') %}disabled{% endif %}>
+        📋 계약서 생성
+      </button>
+    </form>
+    <form method="post" action="/deals/{{ deal.deal_id }}/trigger/contract-send">
+      <button class="btn btn-purple" type="submit"
+        {% if deal.trigger_contract_send not in ('IDLE', 'ERROR') %}disabled{% endif %}>
+        🖊️ 전자계약 발송
+      </button>
+    </form>
+    <form method="post" action="/deals/{{ deal.deal_id }}/trigger/knock-send">
+      <button class="btn btn-red" type="submit"
+        {% if deal.trigger_knock_send not in ('IDLE', 'ERROR') %}disabled{% endif %}>
+        📨 노크 메일 발송
+      </button>
+    </form>
+  </div>
+</div>
+
+{# ── 기본 정보 ── #}
+<div class="card">
+  <div class="card-title">문의 정보</div>
+  <div class="grid-3">
+    <div class="field"><label>회사</label><div class="field-value">{{ deal.company or '—' }}</div></div>
+    <div class="field"><label>담당자</label><div class="field-value">{{ deal.contact_name or '—' }}</div></div>
+    <div class="field"><label>직함</label><div class="field-value">{{ deal.contact_title or '—' }}</div></div>
+    <div class="field"><label>이메일</label><div class="field-value">{{ deal.email or '—' }}</div></div>
+    <div class="field"><label>전화</label><div class="field-value">{{ deal.contact_phone or '—' }}</div></div>
+    <div class="field"><label>문의 유형</label><div class="field-value">{{ deal.inquiry_type or '—' }}</div></div>
+    <div class="field"><label>관심 서비스</label><div class="field-value">{{ deal.service_interest or '—' }}</div></div>
+    <div class="field"><label>규모</label><div class="field-value">{{ deal.scale or '—' }}</div></div>
+    <div class="field"><label>긴급도</label><div class="field-value">{{ deal.urgency or '—' }}</div></div>
+  </div>
+  <div class="field">
+    <label>요약</label>
+    <div class="field-value" style="background:#f9fafb; padding:10px; border-radius:6px; line-height:1.6;">
+      {{ deal.summary or '—' }}
+    </div>
+  </div>
+</div>
+
+{# ── Stage 변경 ── #}
+<div class="card">
+  <div class="card-title">Stage 수동 변경</div>
+  <form method="post" action="/deals/{{ deal.deal_id }}/stage" style="display:flex; gap:8px; align-items:flex-end;">
+    <div style="flex:1;">
+      <label>Stage</label>
+      <select name="stage">
+        {% for s in stage_options %}
+        <option value="{{ s }}" {% if deal.stage == s %}selected{% endif %}>{{ s }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button class="btn btn-gray" type="submit">변경</button>
+  </form>
+</div>
+
+{# ── 회신 초안 ── #}
+<div class="card">
+  <div class="card-title">회신 초안 (편집 가능)</div>
+  <form method="post" action="/deals/{{ deal.deal_id }}/reply-draft">
+    <div class="field">
+      <textarea name="reply_draft" style="min-height:140px;">{{ deal.reply_draft or '' }}</textarea>
+    </div>
+    <button class="btn btn-gray" type="submit">저장</button>
+  </form>
+</div>
+
+{# ── 노크 초안 (있을 때만) ── #}
+{% if deal.knock_draft %}
+<div class="card">
+  <div class="card-title">노크 초안</div>
+  <div style="background:#fef9c3; padding:12px; border-radius:6px; line-height:1.7; white-space:pre-wrap;">{{ deal.knock_draft }}</div>
+</div>
+{% endif %}
+
+{# ── 딜 컨디션 ── #}
+<div class="card">
+  <div class="card-title">딜 조건 (견적/계약서 생성 전 입력)</div>
+  <form method="post" action="/deals/{{ deal.deal_id }}/conditions">
+    <div class="grid-2">
+      <div class="field"><label>서비스명</label><input type="text" name="cond_service_name" value="{{ deal.cond_service_name or '' }}"></div>
+      <div class="field"><label>단가</label><input type="text" name="cond_unit_price" value="{{ deal.cond_unit_price or '' }}"></div>
+      <div class="field"><label>수량</label><input type="text" name="cond_quantity" value="{{ deal.cond_quantity or '' }}"></div>
+      <div class="field"><label>결제 조건</label><input type="text" name="cond_payment_terms" value="{{ deal.cond_payment_terms or '' }}"></div>
+      <div class="field"><label>납품 범위</label><input type="text" name="cond_delivery_scope" value="{{ deal.cond_delivery_scope or '' }}"></div>
+    </div>
+    <div class="field"><label>서비스 설명</label><textarea name="cond_service_desc" style="min-height:60px;">{{ deal.cond_service_desc or '' }}</textarea></div>
+    <div class="field"><label>특이사항</label><textarea name="cond_notes" style="min-height:60px;">{{ deal.cond_notes or '' }}</textarea></div>
+    <button class="btn btn-gray" type="submit">저장</button>
+  </form>
+</div>
+
+{# ── 문서 링크 ── #}
+{% if deal.quote_path_v1 or deal.contract_path_v1 %}
+<div class="card">
+  <div class="card-title">생성된 문서</div>
+  {% if deal.quote_path_v1 %}<div style="margin-bottom:6px;">📄 견적서 v1: <code>{{ deal.quote_path_v1 }}</code></div>{% endif %}
+  {% if deal.quote_path_v2 %}<div style="margin-bottom:6px;">📄 견적서 v2: <code>{{ deal.quote_path_v2 }}</code></div>{% endif %}
+  {% if deal.quote_path_v3 %}<div style="margin-bottom:6px;">📄 견적서 v3: <code>{{ deal.quote_path_v3 }}</code></div>{% endif %}
+  {% if deal.contract_path_v1 %}<div style="margin-bottom:6px;">📋 계약서 v1: <code>{{ deal.contract_path_v1 }}</code></div>{% endif %}
+  {% if deal.contract_path_v2 %}<div style="margin-bottom:6px;">📋 계약서 v2: <code>{{ deal.contract_path_v2 }}</code></div>{% endif %}
+  {% if deal.contract_path_v3 %}<div style="margin-bottom:6px;">📋 계약서 v3: <code>{{ deal.contract_path_v3 }}</code></div>{% endif %}
+</div>
+{% endif %}
+
+{# ── 메타 정보 ── #}
+<div style="font-size:11px; color:#9ca3af; text-align:right; margin-top:8px;">
+  접수: {{ deal.created_at[:19] if deal.created_at else '—' }} &nbsp;|&nbsp;
+  수정: {{ deal.updated_at[:19] if deal.updated_at else '—' }}
+</div>
+
+{% endblock %}
