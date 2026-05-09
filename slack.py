@@ -46,5 +46,12 @@ def notify_knock_needed(deal_id: str, stage: str, company: str):
     )
     notify_deals(msg)
 
+def notify_quote_ready(deal_id: str, company: str, path: str):
+    notify_deals(
+        f'🟡 *견적서 생성 완료* | {deal_id}\n'
+        f'*회사:* {company}\n'
+        f'📄 `{path}`'
+    )
+
 def notify_closed_lost(deal_id: str, company: str):
     notify_deals(f'🔒 *CLOSED_LOST 전환* | {deal_id} | {company}')

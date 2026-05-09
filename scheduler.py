@@ -7,6 +7,7 @@ import db
 import email_client
 import ai
 import slack
+import document
 
 logger = logging.getLogger(__name__)
 
@@ -117,6 +118,28 @@ def process_knock_send():
                 f'🔴 *knock_send 에러*\ndeal_id: {deal_id}\n에러: {str(e)}'
             )
 
+def process_quote_gen():
+    """5분마다: trigger_quote_gen=PENDING → 견적서 생성 → stage=QUOTED → Slack"""
+    deals = db.get_deals_by_trigger('trigger_quote_gen', 'PENDING')
+    for deal in deals:
+        deal_id = deal['deal_id']
+        try:
+            db.update_deal(deal_id, {'trigger_quote_gen': 'PROCESSING'})
+            col, path = document.generate_quote(deal)
+            db.update_deal(deal_id, {
+                col: path,
+                'trigger_quote_gen': 'DONE',
+                'stage': 'QUOTED',
+            })
+            slack.notify_quote_ready(deal_id, deal['company'], path)
+            logger.info(f'[quote_gen] 완료: {deal_id} → {path}')
+        except Exception as e:
+            db.update_deal(deal_id, {'trigger_quote_gen': 'ERROR'})
+            slack.notify_errors(
+                f'🔴 *quote_gen 에러*\ndeal_id: {deal_id}\n에러: {str(e)}'
+            )
+            logger.error(f'[quote_gen] 실패 {deal_id}: {e}')
+
 def check_closed_lost():
     """매일 09:00: KNOCK 후 7일 추가 무응답 → CLOSED_LOST"""
     deals = db.get_deals_for_closed_lost()
@@ -145,6 +168,7 @@ def create_scheduler() -> BackgroundScheduler:
     )
     scheduler.add_job(poll_inbox,         IntervalTrigger(minutes=15), id='poll_inbox')
     scheduler.add_job(process_reply_send, IntervalTrigger(minutes=5),  id='process_reply_send')
+    scheduler.add_job(process_quote_gen,  IntervalTrigger(minutes=5),  id='process_quote_gen')
     scheduler.add_job(process_knock_send, IntervalTrigger(minutes=5),  id='process_knock_send')
     scheduler.add_job(check_no_response,  CronTrigger(hour=9, minute=0),  id='check_no_response')
     scheduler.add_job(check_closed_lost,  CronTrigger(hour=9, minute=0),  id='check_closed_lost')
