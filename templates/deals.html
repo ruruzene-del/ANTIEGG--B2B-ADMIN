@@ -16,8 +16,7 @@
         <th>회사</th>
         <th>담당자</th>
         <th>유형</th>
-        <th>규모</th>
-        <th>긴급도</th>
+        <th>관심 서비스</th>
         <th>Stage</th>
         <th>접수일</th>
       </tr>
@@ -29,8 +28,7 @@
         <td>{{ deal.company or '—' }}</td>
         <td>{{ deal.contact_name or '—' }}</td>
         <td>{{ deal.inquiry_type or '—' }}</td>
-        <td>{{ deal.scale or '—' }}</td>
-        <td>{{ deal.urgency or '—' }}</td>
+        <td>{{ deal.service_interest or '—' }}</td>
         <td>
           <span class="badge badge-{{ deal.stage|lower|replace('_','-') if deal.stage else 'inquiry' }}">
             {{ deal.stage or 'INQUIRY' }}

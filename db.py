@@ -30,8 +30,6 @@ def init_db():
             email               TEXT,
             inquiry_type        TEXT,
             service_interest    TEXT,
-            scale               TEXT,
-            urgency             TEXT,
             stage               TEXT DEFAULT 'REVIEWING',
             summary             TEXT,
             reply_draft         TEXT,
@@ -90,11 +88,11 @@ def insert_deal(deal: dict) -> str:
         conn.execute("""
         INSERT INTO deals (
             deal_id, company, contact_name, contact_title, contact_phone, email,
-            inquiry_type, service_interest, scale, urgency,
+            inquiry_type, service_interest,
             summary, reply_draft, created_at, updated_at
         ) VALUES (
             :deal_id, :company, :contact_name, :contact_title, :contact_phone, :email,
-            :inquiry_type, :service_interest, :scale, :urgency,
+            :inquiry_type, :service_interest,
             :summary, :reply_draft, :created_at, :updated_at
         )
         """, {

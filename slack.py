@@ -27,9 +27,7 @@ def notify_new_inquiry(deal_id: str, deal: dict):
         f"🔔 *새 B2B 문의 접수* | {deal_id}\n"
         f"*회사:* {deal.get('company')} | "
         f"*담당자:* {deal.get('contact_name')} ({deal.get('email')})\n"
-        f"*유형:* {deal.get('inquiry_type')} | "
-        f"*규모:* {deal.get('scale')} | "
-        f"*긴급도:* {deal.get('urgency')}\n"
+        f"*유형:* {deal.get('inquiry_type')}\n"
         f"*요약:* {deal.get('summary')}\n"
         f"→ 어드민에서 reply_draft 확인 후 [1차 회신 발송] 버튼"
     )
