@@ -200,3 +200,158 @@ def generate_quote(deal: dict) -> tuple:
 
     doc.save(path)
     return col, path
+
+# ── 계약서 생성 ───────────────────────────────────────────────────────────────
+
+def _next_contract_slot(deal: dict) -> tuple:
+    """(컬럼명, 파일경로) 반환. v3 초과 시 ValueError."""
+    for v in (1, 2, 3):
+        col = f'contract_path_v{v}'
+        if not deal.get(col):
+            fname = f'{deal["deal_id"]}_contract_v{v}.docx'
+            return col, os.path.join(OUTPUT_DIR, fname)
+    raise ValueError('계약서 버전 초과 (v3까지만 지원)')
+
+def _article(doc, title: str, body: str):
+    title_para = doc.add_paragraph()
+    title_run = title_para.add_run(title)
+    _set_font(title_run, size=11, bold=True, color=(31, 56, 100))
+    body_para = doc.add_paragraph()
+    body_run = body_para.add_run(body)
+    _set_font(body_run, size=10)
+
+def generate_contract(deal: dict) -> tuple:
+    """계약서 생성. (저장 컬럼명, 파일 경로) 반환."""
+    col, path = _next_contract_slot(deal)
+
+    unit_price = _parse_number(deal.get('cond_unit_price'))
+    quantity   = _parse_number(deal.get('cond_quantity')) or 1
+    subtotal   = unit_price * quantity
+    vat        = int(subtotal * 0.1)
+    total      = subtotal + vat
+
+    today_str      = datetime.now().strftime('%Y년 %m월 %d일')
+    contract_start = deal.get('cond_contract_start') or '___년 ___월 ___일'
+    contract_end   = deal.get('cond_contract_end')   or '___년 ___월 ___일'
+    client_company = deal.get('company', '')
+    client_ceo     = deal.get('cond_company_ceo', '')
+    client_biz_no  = deal.get('cond_company_biz_no', '')
+
+    doc = Document()
+
+    for section in doc.sections:
+        section.top_margin    = Cm(2.5)
+        section.bottom_margin = Cm(2.5)
+        section.left_margin   = Cm(3.0)
+        section.right_margin  = Cm(3.0)
+
+    # ── 제목 ──────────────────────────────────────────────────────────────────
+    title_para = doc.add_paragraph()
+    title_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    title_run = title_para.add_run('용  역  계  약  서')
+    _set_font(title_run, size=20, bold=True, color=(31, 56, 100))
+    doc.add_paragraph()
+
+    # ── 계약 당사자 테이블 ────────────────────────────────────────────────────
+    party_table = doc.add_table(rows=5, cols=4)
+    party_table.style = 'Table Grid'
+    _set_col_widths(party_table, [1.8, 5.2, 1.8, 5.2])
+
+    hrow = party_table.rows[0]
+    hrow.cells[0].merge(hrow.cells[1])
+    hrow.cells[2].merge(hrow.cells[3])
+    _cell_text(hrow.cells[0], '갑 (발주자)', bold=True, align='center', color=(255, 255, 255))
+    _shade_cell(hrow.cells[0])
+    _cell_text(hrow.cells[2], '을 (수급자)', bold=True, align='center', color=(255, 255, 255))
+    _shade_cell(hrow.cells[2])
+
+    party_data = [
+        ('상    호', client_company,                       '상    호', 'ANTIEGG'),
+        ('대 표 자', client_ceo,                           '대 표 자', ANTIEGG_CEO),
+        ('사업자번호', client_biz_no,                     '사업자번호', ANTIEGG_BIZ_NO),
+        ('연  락  처', deal.get('contact_phone', '') or deal.get('email', ''),
+                                                           '연  락  처', ANTIEGG_PHONE or ANTIEGG_EMAIL),
+    ]
+    for i, (la, va, lb, vb) in enumerate(party_data, start=1):
+        cells = party_table.rows[i].cells
+        _cell_text(cells[0], la, bold=True, align='center')
+        _cell_text(cells[1], va)
+        _cell_text(cells[2], lb, bold=True, align='center')
+        _cell_text(cells[3], vb)
+
+    doc.add_paragraph()
+
+    # ── 계약 조항 ─────────────────────────────────────────────────────────────
+    _article(doc, '제1조 (목적)',
+        f'본 계약은 {client_company}(이하 "갑"이라 한다)와 ANTIEGG(이하 "을"이라 한다) 간에 '
+        f'{deal.get("cond_service_name", "서비스")} 제공에 관한 권리와 의무를 규정함을 목적으로 한다.'
+    )
+
+    scope_text = (
+        f'1. 서비스명: {deal.get("cond_service_name", "")}\n'
+        f'2. 내용: {deal.get("cond_service_desc", "")}\n'
+        f'3. 납품 범위: {deal.get("cond_delivery_scope", "") or "별도 협의"}'
+    )
+    _article(doc, '제2조 (용역 범위)', scope_text)
+
+    _article(doc, '제3조 (계약 기간)',
+        f'계약 기간은 {contract_start}부터 {contract_end}까지로 한다.'
+    )
+
+    _article(doc, '제4조 (계약 금액)',
+        f'공급가액: {_fmt_money(subtotal)}\n'
+        f'부가가치세 (10%): {_fmt_money(vat)}\n'
+        f'합계 (VAT 포함): {_fmt_money(total)}'
+    )
+
+    _article(doc, '제5조 (결제 조건)',
+        deal.get('cond_payment_terms', '계약 체결 후 별도 협의')
+    )
+
+    article_no = 6
+    if deal.get('cond_notes'):
+        _article(doc, f'제{article_no}조 (특이사항)', deal['cond_notes'])
+        article_no += 1
+
+    _article(doc, f'제{article_no}조 (일반 조항)',
+        '① 본 계약에 명시되지 않은 사항은 관련 법령 및 상관례에 따른다.\n'
+        '② 본 계약과 관련하여 분쟁이 발생한 경우 갑, 을이 협의하여 해결한다.'
+    )
+
+    doc.add_paragraph()
+
+    # ── 체결일 ────────────────────────────────────────────────────────────────
+    date_para = doc.add_paragraph()
+    date_para.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    date_run = date_para.add_run(today_str)
+    _set_font(date_run, size=11, bold=True)
+
+    doc.add_paragraph()
+
+    # ── 서명란 ────────────────────────────────────────────────────────────────
+    sig_table = doc.add_table(rows=4, cols=4)
+    sig_table.style = 'Table Grid'
+    _set_col_widths(sig_table, [1.8, 5.2, 1.8, 5.2])
+
+    sh = sig_table.rows[0]
+    sh.cells[0].merge(sh.cells[1])
+    sh.cells[2].merge(sh.cells[3])
+    _cell_text(sh.cells[0], '갑 (발주자)', bold=True, align='center', color=(255, 255, 255))
+    _shade_cell(sh.cells[0])
+    _cell_text(sh.cells[2], '을 (수급자)', bold=True, align='center', color=(255, 255, 255))
+    _shade_cell(sh.cells[2])
+
+    sig_data = [
+        ('상    호', client_company,                '상    호', 'ANTIEGG'),
+        ('대 표 자', f'{client_ceo}  (인)',         '대 표 자', f'{ANTIEGG_CEO}  (인)'),
+        ('사업자번호', client_biz_no,              '사업자번호', ANTIEGG_BIZ_NO),
+    ]
+    for i, (la, va, lb, vb) in enumerate(sig_data, start=1):
+        cells = sig_table.rows[i].cells
+        _cell_text(cells[0], la, bold=True, align='center')
+        _cell_text(cells[1], va)
+        _cell_text(cells[2], lb, bold=True, align='center')
+        _cell_text(cells[3], vb)
+
+    doc.save(path)
+    return col, path

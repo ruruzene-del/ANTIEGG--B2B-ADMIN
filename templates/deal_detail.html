@@ -100,6 +100,18 @@
         <div class="field"><label>납품 범위</label><input type="text" name="cond_delivery_scope" value="{{ deal.cond_delivery_scope or '' }}"></div>
         <div class="field"><label>서비스 설명</label><textarea name="cond_service_desc" style="min-height:56px;">{{ deal.cond_service_desc or '' }}</textarea></div>
         <div class="field"><label>특이사항</label><textarea name="cond_notes" style="min-height:56px;">{{ deal.cond_notes or '' }}</textarea></div>
+
+        <div style="margin:14px 0 10px; border-top:1px solid #f3f4f6; padding-top:12px;">
+          <div style="font-size:12px; font-weight:700; color:#6b7280; margin-bottom:8px; text-transform:uppercase; letter-spacing:.04em;">계약서 정보</div>
+          <div class="grid-2">
+            <div class="field"><label>고객사 대표자</label><input type="text" name="cond_company_ceo" value="{{ deal.cond_company_ceo or '' }}"></div>
+            <div class="field"><label>고객사 사업자번호</label><input type="text" name="cond_company_biz_no" placeholder="000-00-00000" value="{{ deal.cond_company_biz_no or '' }}"></div>
+            <div class="field"><label>계약 시작일</label><input type="text" name="cond_contract_start" placeholder="2025년 01월 01일" value="{{ deal.cond_contract_start or '' }}"></div>
+            <div class="field"><label>계약 종료일</label><input type="text" name="cond_contract_end" placeholder="2025년 12월 31일" value="{{ deal.cond_contract_end or '' }}"></div>
+          </div>
+          <div class="field"><label>고객사 주소</label><input type="text" name="cond_company_addr" value="{{ deal.cond_company_addr or '' }}"></div>
+        </div>
+
         <button class="btn btn-gray" type="submit">저장</button>
       </form>
     </div>

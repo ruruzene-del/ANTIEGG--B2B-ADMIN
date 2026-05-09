@@ -1,7 +1,9 @@
 import logging
+import os
 from contextlib import asynccontextmanager
+from datetime import datetime
 from fastapi import FastAPI, Request, Form
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse
 from fastapi.templating import Jinja2Templates
 from dotenv import load_dotenv
 
@@ -115,6 +117,11 @@ async def update_conditions(
     cond_payment_terms: str = Form(''),
     cond_delivery_scope: str = Form(''),
     cond_notes: str = Form(''),
+    cond_company_addr: str = Form(''),
+    cond_company_ceo: str = Form(''),
+    cond_company_biz_no: str = Form(''),
+    cond_contract_start: str = Form(''),
+    cond_contract_end: str = Form(''),
 ):
     db.update_deal(deal_id, {
         'cond_service_name': cond_service_name,
@@ -124,6 +131,11 @@ async def update_conditions(
         'cond_payment_terms': cond_payment_terms,
         'cond_delivery_scope': cond_delivery_scope,
         'cond_notes': cond_notes,
+        'cond_company_addr': cond_company_addr,
+        'cond_company_ceo': cond_company_ceo,
+        'cond_company_biz_no': cond_company_biz_no,
+        'cond_contract_start': cond_contract_start,
+        'cond_contract_end': cond_contract_end,
     })
     return RedirectResponse(f'/deals/{deal_id}', status_code=303)
 
@@ -142,10 +154,51 @@ async def set_trigger(deal_id: str, trigger_name: str):
 
 # ── 모두싸인 Webhook (Phase 4에서 구현) ──────────────────────────────────────
 
-@app.post('/webhook/modusign')
-async def modusign_webhook(request: Request):
-    payload = await request.json()
-    if payload.get('event_type') == 'DOCUMENT_COMPLETED':
-        doc_id = payload.get('document', {}).get('id', '')
-        # Phase 4: deal 조회 → stage=SIGNED → CLOSED_WON
-    return {'ok': True}
+# ── 전자계약 서명 페이지 ──────────────────────────────────────────────────────
+
+@app.get('/sign/{token}', response_class=HTMLResponse)
+async def sign_page(request: Request, token: str):
+    deal = db.get_deal_by_sign_token(token)
+    if not deal:
+        return HTMLResponse('유효하지 않은 서명 링크입니다.', status_code=404)
+    return templates.TemplateResponse('sign.html', {'request': request, 'deal': deal})
+
+@app.post('/sign/{token}', response_class=HTMLResponse)
+async def sign_submit(request: Request, token: str, signer_name: str = Form(...)):
+    deal = db.get_deal_by_sign_token(token)
+    if not deal:
+        return HTMLResponse('유효하지 않은 서명 링크입니다.', status_code=404)
+    if deal.get('signed_at'):
+        return HTMLResponse('이미 서명이 완료된 계약서입니다.', status_code=410)
+
+    now = datetime.now().isoformat()
+    client_ip = request.client.host if request.client else ''
+    db.update_deal(deal['deal_id'], {
+        'signed_at': now,
+        'signed_ip': client_ip,
+        'stage': 'SIGNED',
+    })
+    slack.notify_contract_signed(deal['deal_id'], deal['company'])
+
+    return templates.TemplateResponse('sign.html', {
+        'request': request,
+        'deal': db.get_deal(deal['deal_id']),
+        'signer_name': signer_name,
+        'just_signed': True,
+    })
+
+@app.get('/download/{token}')
+async def download_contract(token: str):
+    deal = db.get_deal_by_sign_token(token)
+    if not deal:
+        return HTMLResponse('유효하지 않은 링크입니다.', status_code=404)
+    for v in (3, 2, 1):
+        path = deal.get(f'contract_path_v{v}')
+        if path and os.path.exists(path):
+            return FileResponse(
+                path,
+                media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                filename=f'{deal["deal_id"]}_contract.docx',
+            )
+    return HTMLResponse('계약서 파일을 찾을 수 없습니다. 관리자에게 문의하세요.', status_code=404)
+

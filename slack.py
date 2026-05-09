@@ -51,5 +51,21 @@ def notify_quote_ready(deal_id: str, company: str, path: str):
         f'📄 `{path}`'
     )
 
+def notify_contract_sent(deal_id: str, company: str):
+    notify_deals(
+        f'🖊️ *전자계약 발송 완료* | {deal_id} | {company}\n'
+        f'→ 모두싸인 서명 링크가 고객사 이메일로 발송되었습니다.'
+    )
+
+def notify_contract_signed(deal_id: str, company: str):
+    notify_deals(f'✅ *전자계약 서명 완료* | {deal_id} | {company} | stage → SIGNED')
+
+def notify_contract_ready(deal_id: str, company: str, path: str):
+    notify_deals(
+        f'📋 *계약서 생성 완료* | {deal_id}\n'
+        f'*회사:* {company}\n'
+        f'📄 `{path}`'
+    )
+
 def notify_closed_lost(deal_id: str, company: str):
     notify_deals(f'🔒 *CLOSED_LOST 전환* | {deal_id} | {company}')

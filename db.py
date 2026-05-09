@@ -48,6 +48,14 @@ def init_db():
             contract_path_v2    TEXT,
             contract_path_v3    TEXT,
             modusign_doc_id     TEXT,
+            cond_company_addr   TEXT,
+            cond_company_ceo    TEXT,
+            cond_company_biz_no TEXT,
+            cond_contract_start TEXT,
+            cond_contract_end   TEXT,
+            sign_token          TEXT,
+            signed_at           TEXT,
+            signed_ip           TEXT,
             trigger_reply_send      TEXT DEFAULT 'IDLE',
             trigger_quote_gen       TEXT DEFAULT 'IDLE',
             trigger_contract_gen    TEXT DEFAULT 'IDLE',
@@ -62,6 +70,15 @@ def init_db():
             last_number  INTEGER DEFAULT 0
         );
         """)
+        for col in [
+            'cond_company_addr', 'cond_company_ceo', 'cond_company_biz_no',
+            'cond_contract_start', 'cond_contract_end',
+            'sign_token', 'signed_at', 'signed_ip',
+        ]:
+            try:
+                conn.execute(f'ALTER TABLE deals ADD COLUMN {col} TEXT')
+            except Exception:
+                pass
 
 def generate_deal_id() -> str:
     ym = datetime.now().strftime('%Y%m')
@@ -154,6 +171,26 @@ def get_action_needed() -> list:
             ORDER BY created_at DESC
         """).fetchall()
     return [dict(r) for r in rows]
+
+def set_sign_token(deal_id: str) -> str:
+    import uuid
+    token = str(uuid.uuid4())
+    update_deal(deal_id, {'sign_token': token})
+    return token
+
+def get_deal_by_sign_token(token: str) -> dict:
+    with get_conn() as conn:
+        row = conn.execute(
+            'SELECT * FROM deals WHERE sign_token = ?', (token,)
+        ).fetchone()
+    return dict(row) if row else None
+
+def get_deal_by_modusign_id(doc_id: str) -> dict:
+    with get_conn() as conn:
+        row = conn.execute(
+            'SELECT * FROM deals WHERE modusign_doc_id = ?', (doc_id,)
+        ).fetchone()
+    return dict(row) if row else None
 
 def get_deals_for_knock_check() -> list:
     """stage가 REPLIED 또는 QUOTED이고 7일 이상 updated_at이 없는 딜"""

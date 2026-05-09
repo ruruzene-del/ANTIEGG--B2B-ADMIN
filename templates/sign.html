@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>전자계약 서명 — ANTIEGG</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      font-size: 14px; background: #f5f7fa; color: #222;
+      min-height: 100vh; display: flex; flex-direction: column; align-items: center;
+      padding: 40px 20px;
+    }
+    .container { width: 100%; max-width: 640px; }
+    .logo {
+      font-size: 18px; font-weight: 700; color: #0f172a;
+      letter-spacing: -.01em; margin-bottom: 28px; text-align: center;
+    }
+    .logo span { color: #2563eb; }
+    .card {
+      background: #fff; border-radius: 12px; border: 1px solid #e5e7eb;
+      padding: 32px; margin-bottom: 16px;
+    }
+    .card-title { font-size: 16px; font-weight: 700; color: #111; margin-bottom: 20px; }
+    .row {
+      display: flex; padding: 10px 0; border-bottom: 1px solid #f3f4f6; font-size: 14px;
+    }
+    .row:last-child { border: none; }
+    .label { width: 110px; color: #9ca3af; flex-shrink: 0; }
+    .value { color: #111; font-weight: 500; }
+    .amount { font-size: 20px; font-weight: 700; color: #2563eb; }
+
+    .agreement-box {
+      background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 8px;
+      padding: 16px 20px; margin: 20px 0; font-size: 13px; line-height: 1.7; color: #374151;
+    }
+    .form-group { margin-bottom: 16px; }
+    label.field-label {
+      display: block; font-size: 12px; font-weight: 600; color: #6b7280; margin-bottom: 6px;
+    }
+    input[type=text] {
+      width: 100%; padding: 10px 12px; border: 1px solid #d1d5db;
+      border-radius: 8px; font-size: 14px; font-family: inherit;
+    }
+    input[type=text]:focus { outline: none; border-color: #2563eb; box-shadow: 0 0 0 3px rgba(37,99,235,.15); }
+    .checkbox-row { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 20px; }
+    .checkbox-row input { margin-top: 2px; width: 16px; height: 16px; flex-shrink: 0; }
+    .checkbox-row span { font-size: 13px; color: #374151; line-height: 1.5; }
+    .btn-sign {
+      width: 100%; padding: 14px; background: #2563eb; color: #fff;
+      border: none; border-radius: 8px; font-size: 15px; font-weight: 600;
+      cursor: pointer; transition: background .15s;
+    }
+    .btn-sign:hover { background: #1d4ed8; }
+    .btn-sign:disabled { background: #9ca3af; cursor: not-allowed; }
+
+    .success-icon { font-size: 48px; text-align: center; margin-bottom: 16px; }
+    .success-title { font-size: 20px; font-weight: 700; text-align: center; color: #16a34a; margin-bottom: 8px; }
+    .success-sub { font-size: 13px; color: #6b7280; text-align: center; line-height: 1.7; }
+    .audit-box {
+      background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px;
+      padding: 14px 18px; margin-top: 20px; font-size: 12px; color: #166534; line-height: 1.8;
+    }
+
+    .footer { margin-top: 32px; font-size: 12px; color: #9ca3af; text-align: center; }
+    .dl-link {
+      display: inline-block; margin-top: 16px; padding: 8px 16px;
+      background: #f3f4f6; border-radius: 6px; font-size: 13px; color: #374151;
+      text-decoration: none; border: 1px solid #e5e7eb;
+    }
+    .dl-link:hover { background: #e5e7eb; }
+
+    .already-signed {
+      background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px;
+      padding: 20px; text-align: center; color: #166534;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+
+    <div class="logo">ANTIEGG <span>B2B</span></div>
+
+    {% if just_signed %}
+    {# ── 서명 완료 화면 ── #}
+    <div class="card">
+      <div class="success-icon">✅</div>
+      <div class="success-title">전자서명이 완료되었습니다</div>
+      <div class="success-sub">
+        {{ signer_name }} 님의 서명이 정상적으로 접수되었습니다.<br>
+        계약 관련 사항은 ANTIEGG 담당자가 별도 안내드립니다.
+      </div>
+      <div class="audit-box">
+        서명자: {{ signer_name }}<br>
+        서명일시: {{ deal.signed_at[:19].replace('T', ' ') if deal.signed_at else '—' }}<br>
+        계약번호: {{ deal.deal_id }}
+      </div>
+    </div>
+
+    {% elif deal.signed_at %}
+    {# ── 이미 서명된 상태 ── #}
+    <div class="card">
+      <div class="already-signed">
+        ✅ 이미 서명이 완료된 계약서입니다.<br>
+        <small style="opacity:.7;">서명일시: {{ deal.signed_at[:19].replace('T', ' ') }}</small>
+      </div>
+    </div>
+
+    {% else %}
+    {# ── 서명 전 화면 ── #}
+
+    {# 계약 요약 #}
+    <div class="card">
+      <div class="card-title">계약 내용 확인</div>
+
+      {% set unit_price = (deal.cond_unit_price or '0') | replace(',', '') | replace('원', '') %}
+      {% set qty = (deal.cond_quantity or '1') %}
+
+      <div class="row"><span class="label">계약번호</span><span class="value">{{ deal.deal_id }}</span></div>
+      <div class="row"><span class="label">발주사</span><span class="value">{{ deal.company or '—' }}</span></div>
+      <div class="row"><span class="label">수급사</span><span class="value">ANTIEGG</span></div>
+      <div class="row"><span class="label">서비스명</span><span class="value">{{ deal.cond_service_name or '—' }}</span></div>
+      <div class="row"><span class="label">계약 기간</span><span class="value">{{ deal.cond_contract_start or '—' }} ~ {{ deal.cond_contract_end or '—' }}</span></div>
+      <div class="row"><span class="label">결제 조건</span><span class="value">{{ deal.cond_payment_terms or '—' }}</span></div>
+      {% if deal.cond_notes %}
+      <div class="row"><span class="label">특이사항</span><span class="value">{{ deal.cond_notes }}</span></div>
+      {% endif %}
+    </div>
+
+    {# 서명 폼 #}
+    <div class="card">
+      <div class="card-title">전자서명</div>
+
+      <div class="agreement-box">
+        본인은 위 계약 내용을 충분히 검토하였으며, 해당 내용에 동의하여 전자서명을 진행합니다.<br>
+        본 전자서명은 「전자서명법」에 따라 자필 서명과 동일한 법적 효력을 가집니다.
+      </div>
+
+      {% if deal.contract_path_v1 or deal.contract_path_v2 or deal.contract_path_v3 %}
+      <div style="margin-bottom:16px;">
+        <a class="dl-link" href="/download/{{ deal.sign_token }}">📄 계약서 원본 다운로드 (.docx)</a>
+      </div>
+      {% endif %}
+
+      <form method="post">
+        <div class="form-group">
+          <label class="field-label">서명자 성명 (본인 이름 입력)</label>
+          <input type="text" name="signer_name" placeholder="홍길동" required autocomplete="off">
+        </div>
+
+        <div class="checkbox-row">
+          <input type="checkbox" id="agree" required>
+          <label for="agree" style="cursor:pointer;">
+            <span>위 계약 내용을 확인하였으며, 이에 동의합니다.</span>
+          </label>
+        </div>
+
+        <button class="btn-sign" type="submit" id="sign-btn" disabled>서명하기</button>
+      </form>
+
+      <script>
+        const cb = document.getElementById('agree');
+        const btn = document.getElementById('sign-btn');
+        cb.addEventListener('change', () => btn.disabled = !cb.checked);
+      </script>
+    </div>
+    {% endif %}
+
+    <div class="footer">
+      ANTIEGG · 본 페이지는 {{ deal.company }}과의 계약 서명을 위한 전용 링크입니다.<br>
+      서명 관련 문의: {{ deal.email or '' }}
+    </div>
+
+  </div>
+</body>
+</html>
