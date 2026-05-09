@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}대시보드 — ANTIEGG B2B{% endblock %}
+
+{% block content %}
+
+{# ── KPI 카드 ── #}
+<div style="display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:20px;">
+  {% set cards = [
+    ('전체 딜',      stats.total,        '#2563eb', '📁'),
+    ('진행 중',      stats.active,       '#16a34a', '🔄'),
+    ('계약 완료',    stats.closed_won,   '#166534', '✅'),
+    ('액션 필요',    stats.needs_action, '#dc2626', '⚠️'),
+  ] %}
+  {% for label, value, color, icon in cards %}
+  <div style="background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:18px 20px;">
+    <div style="font-size:11px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:.05em; margin-bottom:6px;">{{ icon }} {{ label }}</div>
+    <div style="font-size:32px; font-weight:700; color:{{ color }};">{{ value }}</div>
+  </div>
+  {% endfor %}
+</div>
+
+{# ── 파이프라인 ── #}
+<div class="card" style="margin-bottom:20px;">
+  <div class="card-title">파이프라인</div>
+  <div style="display:flex; gap:0; align-items:stretch;">
+    {% for item in pipeline %}
+    {% set colors = {
+      'REVIEWING':   ('#dbeafe','#1d4ed8'),
+      'REPLIED':     ('#d1fae5','#065f46'),
+      'NEGOTIATING': ('#fef9c3','#854d0e'),
+      'QUOTED':      ('#ffedd5','#9a3412'),
+      'CONTRACTING': ('#ede9fe','#6d28d9'),
+      'SIGNED':      ('#d1fae5','#065f46'),
+      'CLOSED_WON':  ('#166534','#fff'),
+    } %}
+    {% set bg, fg = colors.get(item.stage, ('#f3f4f6','#374151')) %}
+    <div style="flex:1; background:{{ bg }}; padding:12px 8px; text-align:center;
+                border-right:2px solid #fff;
+                {% if loop.first %}border-radius:8px 0 0 8px;{% endif %}
+                {% if loop.last %}border-radius:0 8px 8px 0; border-right:none;{% endif %}">
+      <div style="font-size:20px; font-weight:700; color:{{ fg }};">{{ item.count }}</div>
+      <div style="font-size:10px; font-weight:600; color:{{ fg }}; margin-top:2px; opacity:.8;">{{ item.stage }}</div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+{# ── 액션 필요 ── #}
+{% if action_deals %}
+<div class="card" style="margin-bottom:20px; border-color:#fca5a5;">
+  <div class="card-title" style="color:#dc2626;">⚠️ 액션 필요 ({{ action_deals|length }}건)</div>
+  <table>
+    <thead>
+      <tr>
+        <th>딜 ID</th>
+        <th>회사</th>
+        <th>담당자</th>
+        <th>Stage</th>
+        <th>필요 액션</th>
+        <th>접수일</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for deal in action_deals %}
+      <tr onclick="location.href='/deals/{{ deal.deal_id }}'" style="cursor:pointer;">
+        <td><a href="/deals/{{ deal.deal_id }}" style="font-weight:600;">{{ deal.deal_id }}</a></td>
+        <td>{{ deal.company or '—' }}</td>
+        <td>{{ deal.contact_name or '—' }}</td>
+        <td><span class="badge badge-{{ deal.stage|lower|replace('_','-') }}">{{ deal.stage }}</span></td>
+        <td>
+          {% if deal.stage == 'REVIEWING' %}
+            <span style="color:#dc2626; font-size:12px; font-weight:600;">회신 초안 확인 필요</span>
+          {% elif deal.stage in ('KNOCK_REPLY', 'KNOCK_QUOTE') %}
+            <span style="color:#dc2626; font-size:12px; font-weight:600;">노크 메일 발송 필요</span>
+          {% elif deal.trigger_reply_send == 'ERROR' or deal.trigger_quote_gen == 'ERROR'
+               or deal.trigger_contract_gen == 'ERROR' or deal.trigger_contract_send == 'ERROR'
+               or deal.trigger_knock_send == 'ERROR' %}
+            <span style="color:#dc2626; font-size:12px; font-weight:600;">트리거 오류</span>
+          {% elif deal.trigger_reply_send == 'PENDING' %}
+            <span style="color:#d97706; font-size:12px; font-weight:600;">회신 발송 대기중</span>
+          {% elif deal.trigger_quote_gen == 'PENDING' %}
+            <span style="color:#d97706; font-size:12px; font-weight:600;">견적서 생성 대기중</span>
+          {% elif deal.trigger_contract_gen == 'PENDING' %}
+            <span style="color:#d97706; font-size:12px; font-weight:600;">계약서 생성 대기중</span>
+          {% elif deal.trigger_contract_send == 'PENDING' %}
+            <span style="color:#d97706; font-size:12px; font-weight:600;">전자계약 발송 대기중</span>
+          {% elif deal.trigger_knock_send == 'PENDING' %}
+            <span style="color:#d97706; font-size:12px; font-weight:600;">노크 메일 대기중</span>
+          {% endif %}
+        </td>
+        <td style="color:#6b7280; font-size:12px;">{{ deal.created_at[:10] if deal.created_at else '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+{# ── 전체 딜 목록 ── #}
+<div class="card" style="padding:0; overflow:hidden;">
+  <div style="padding:16px 20px 12px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #f3f4f6;">
+    <div class="card-title" style="margin:0;">전체 딜 ({{ deals|length }})</div>
+    <div style="display:flex; gap:6px; flex-wrap:wrap;">
+      {% set all_stages = ['REVIEWING','REPLIED','NEGOTIATING','QUOTED','CONTRACTING','SIGNED','CLOSED_WON','KNOCK_REPLY','KNOCK_QUOTE','CLOSED_LOST'] %}
+      <a href="/" style="font-size:12px; padding:3px 10px; border-radius:999px; background:#111; color:#fff; text-decoration:none;">전체</a>
+      {% for s in all_stages %}
+      <a href="/?stage={{ s }}" style="font-size:12px; padding:3px 10px; border-radius:999px; background:#f3f4f6; color:#374151; text-decoration:none;">{{ s }}</a>
+      {% endfor %}
+    </div>
+  </div>
+  {% if deals %}
+  <table>
+    <thead>
+      <tr>
+        <th>딜 ID</th>
+        <th>회사</th>
+        <th>담당자</th>
+        <th>유형</th>
+        <th>관심 서비스</th>
+        <th>Stage</th>
+        <th>접수일</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for deal in deals %}
+      <tr onclick="location.href='/deals/{{ deal.deal_id }}'" style="cursor:pointer;">
+        <td><a href="/deals/{{ deal.deal_id }}" style="font-weight:600;">{{ deal.deal_id }}</a></td>
+        <td style="font-weight:500;">{{ deal.company or '—' }}</td>
+        <td>{{ deal.contact_name or '—' }}{% if deal.contact_title %} <span style="color:#9ca3af; font-size:11px;">{{ deal.contact_title }}</span>{% endif %}</td>
+        <td>{{ deal.inquiry_type or '—' }}</td>
+        <td style="color:#6b7280;">{{ deal.service_interest or '—' }}</td>
+        <td><span class="badge badge-{{ deal.stage|lower|replace('_','-') if deal.stage else 'reviewing' }}">{{ deal.stage or 'REVIEWING' }}</span></td>
+        <td style="color:#9ca3af; font-size:12px;">{{ deal.created_at[:10] if deal.created_at else '—' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div style="text-align:center; padding:48px; color:#9ca3af;">
+    <div style="font-size:32px; margin-bottom:12px;">📭</div>
+    <div>아직 접수된 문의가 없습니다.</div>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}

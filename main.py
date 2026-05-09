@@ -46,12 +46,34 @@ templates = Jinja2Templates(directory='templates')
 
 # ── 딜 목록 ──────────────────────────────────────────────────────────────────
 
+PIPELINE_STAGES = ['REVIEWING', 'REPLIED', 'NEGOTIATING', 'QUOTED', 'CONTRACTING', 'SIGNED', 'CLOSED_WON']
+
 @app.get('/', response_class=HTMLResponse)
-async def deals_list(request: Request):
-    deals = db.get_all_deals()
-    return templates.TemplateResponse(
-        'deals.html', {'request': request, 'deals': deals}
-    )
+async def dashboard(request: Request):
+    deals       = db.get_all_deals()
+    stage_counts = db.get_stage_counts()
+    action_deals = db.get_action_needed()
+
+    active_stages = {'REVIEWING', 'REPLIED', 'NEGOTIATING', 'QUOTED', 'CONTRACTING', 'SIGNED'}
+    total       = len(deals)
+    active      = sum(stage_counts.get(s, 0) for s in active_stages)
+    closed_won  = stage_counts.get('CLOSED_WON', 0)
+    needs_action = len(action_deals)
+
+    pipeline = [{'stage': s, 'count': stage_counts.get(s, 0)} for s in PIPELINE_STAGES]
+
+    return templates.TemplateResponse('dashboard.html', {
+        'request':      request,
+        'deals':        deals,
+        'action_deals': action_deals,
+        'pipeline':     pipeline,
+        'stats': {
+            'total':        total,
+            'active':       active,
+            'closed_won':   closed_won,
+            'needs_action': needs_action,
+        },
+    })
 
 # ── 딜 상세 ──────────────────────────────────────────────────────────────────
 

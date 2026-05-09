@@ -133,6 +133,28 @@ def get_deals_by_trigger(trigger_col: str, status: str = 'PENDING') -> list:
         ).fetchall()
     return [dict(r) for r in rows]
 
+def get_stage_counts() -> dict:
+    with get_conn() as conn:
+        rows = conn.execute(
+            'SELECT stage, COUNT(*) as cnt FROM deals GROUP BY stage'
+        ).fetchall()
+    return {r['stage']: r['cnt'] for r in rows}
+
+def get_action_needed() -> list:
+    """액션이 필요한 딜: REVIEWING, KNOCK, trigger ERROR, trigger PENDING"""
+    with get_conn() as conn:
+        rows = conn.execute("""
+            SELECT * FROM deals
+            WHERE stage IN ('REVIEWING', 'KNOCK_REPLY', 'KNOCK_QUOTE')
+               OR trigger_reply_send   IN ('PENDING', 'ERROR')
+               OR trigger_quote_gen    IN ('PENDING', 'ERROR')
+               OR trigger_contract_gen IN ('PENDING', 'ERROR')
+               OR trigger_contract_send IN ('PENDING', 'ERROR')
+               OR trigger_knock_send   IN ('PENDING', 'ERROR')
+            ORDER BY created_at DESC
+        """).fetchall()
+    return [dict(r) for r in rows]
+
 def get_deals_for_knock_check() -> list:
     """stage가 REPLIED 또는 QUOTED이고 7일 이상 updated_at이 없는 딜"""
     with get_conn() as conn:

@@ -4,147 +4,199 @@
 {% block content %}
 
 {# ── 헤더 ── #}
-<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+<div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:20px;">
   <div>
-    <div style="font-size:12px; color:#6b7280; margin-bottom:4px;"><a href="/">← 딜 목록</a></div>
-    <h1 style="font-size:18px; font-weight:700;">{{ deal.deal_id }} — {{ deal.company or '회사명 미상' }}</h1>
+    <div style="font-size:12px; color:#9ca3af; margin-bottom:6px;"><a href="/">← 대시보드</a></div>
+    <h1 style="font-size:20px; font-weight:700; margin-bottom:4px;">{{ deal.company or '회사명 미상' }}</h1>
+    <div style="font-size:13px; color:#6b7280;">
+      {{ deal.deal_id }}
+      {% if deal.contact_name %} · {{ deal.contact_name }}{% if deal.contact_title %} ({{ deal.contact_title }}){% endif %}{% endif %}
+      {% if deal.email %} · {{ deal.email }}{% endif %}
+    </div>
   </div>
-  <span class="badge badge-{{ deal.stage|lower|replace('_','-') if deal.stage else 'inquiry' }}" style="font-size:13px; padding:4px 12px;">
-    {{ deal.stage or 'INQUIRY' }}
-  </span>
+  <div style="text-align:right;">
+    <span class="badge badge-{{ deal.stage|lower|replace('_','-') if deal.stage else 'reviewing' }}"
+          style="font-size:13px; padding:5px 14px;">{{ deal.stage or 'REVIEWING' }}</span>
+    <div style="font-size:11px; color:#9ca3af; margin-top:6px;">
+      접수 {{ deal.created_at[:10] if deal.created_at else '—' }}
+    </div>
+  </div>
 </div>
 
-{# ── 액션 버튼 ── #}
-<div class="card">
-  <div class="card-title">액션</div>
-  <div class="trigger-bar">
-    <form method="post" action="/deals/{{ deal.deal_id }}/trigger/reply-send">
-      <button class="btn btn-primary" type="submit"
-        {% if deal.trigger_reply_send not in ('IDLE', 'ERROR') %}disabled title="{{ deal.trigger_reply_send }}"{% endif %}>
-        ✉️ 1차 회신 발송
-        {% if deal.trigger_reply_send == 'PENDING' %} (대기중)
-        {% elif deal.trigger_reply_send == 'PROCESSING' %} (처리중)
-        {% elif deal.trigger_reply_send == 'DONE' %} (완료)
-        {% elif deal.trigger_reply_send == 'ERROR' %} (오류)
+{# ── 2컬럼 레이아웃 ── #}
+<div style="display:grid; grid-template-columns:1fr 340px; gap:16px; align-items:start;">
+
+  {# ── 왼쪽 ── #}
+  <div>
+
+    {# 액션 버튼 #}
+    <div class="card">
+      <div class="card-title">액션</div>
+      <div class="trigger-bar">
+
+        {% macro trigger_btn(label, route, col_val, cls) %}
+        <form method="post" action="/deals/{{ deal.deal_id }}/trigger/{{ route }}">
+          <button class="btn btn-{{ cls }}" type="submit"
+            {% if col_val not in ('IDLE', 'ERROR', None) %}disabled{% endif %}
+            style="{% if col_val == 'ERROR' %}outline:2px solid #dc2626;{% endif %}">
+            {{ label }}
+            {% if col_val == 'PENDING' %}<span style="font-size:10px; opacity:.7;"> 대기중</span>
+            {% elif col_val == 'PROCESSING' %}<span style="font-size:10px; opacity:.7;"> 처리중</span>
+            {% elif col_val == 'DONE' %}<span style="font-size:10px; opacity:.7;"> 완료</span>
+            {% elif col_val == 'ERROR' %}<span style="font-size:10px;"> ⚠️재시도</span>
+            {% endif %}
+          </button>
+        </form>
+        {% endmacro %}
+
+        {{ trigger_btn('✉️ 1차 회신 발송',  'reply-send',    deal.trigger_reply_send,    'primary') }}
+        {{ trigger_btn('📄 견적서 생성',     'quote-gen',     deal.trigger_quote_gen,     'green') }}
+        {{ trigger_btn('📋 계약서 생성',     'contract-gen',  deal.trigger_contract_gen,  'orange') }}
+        {{ trigger_btn('🖊️ 전자계약 발송',  'contract-send', deal.trigger_contract_send, 'purple') }}
+        {{ trigger_btn('📨 노크 메일 발송',  'knock-send',    deal.trigger_knock_send,    'red') }}
+      </div>
+    </div>
+
+    {# 문의 요약 #}
+    <div class="card">
+      <div class="card-title">문의 요약</div>
+      <div style="background:#f8fafc; border-left:3px solid #2563eb; padding:12px 14px; border-radius:0 6px 6px 0; line-height:1.7; color:#374151;">
+        {{ deal.summary or '—' }}
+      </div>
+    </div>
+
+    {# 회신 초안 #}
+    <div class="card">
+      <div class="card-title">
+        회신 초안
+        {% if deal.trigger_reply_send == 'DONE' %}
+          <span style="font-size:11px; color:#16a34a; font-weight:400; margin-left:8px;">✓ 발송 완료</span>
         {% endif %}
-      </button>
-    </form>
-    <form method="post" action="/deals/{{ deal.deal_id }}/trigger/quote-gen">
-      <button class="btn btn-green" type="submit"
-        {% if deal.trigger_quote_gen not in ('IDLE', 'ERROR') %}disabled{% endif %}>
-        📄 견적서 생성
-      </button>
-    </form>
-    <form method="post" action="/deals/{{ deal.deal_id }}/trigger/contract-gen">
-      <button class="btn btn-orange" type="submit"
-        {% if deal.trigger_contract_gen not in ('IDLE', 'ERROR') %}disabled{% endif %}>
-        📋 계약서 생성
-      </button>
-    </form>
-    <form method="post" action="/deals/{{ deal.deal_id }}/trigger/contract-send">
-      <button class="btn btn-purple" type="submit"
-        {% if deal.trigger_contract_send not in ('IDLE', 'ERROR') %}disabled{% endif %}>
-        🖊️ 전자계약 발송
-      </button>
-    </form>
-    <form method="post" action="/deals/{{ deal.deal_id }}/trigger/knock-send">
-      <button class="btn btn-red" type="submit"
-        {% if deal.trigger_knock_send not in ('IDLE', 'ERROR') %}disabled{% endif %}>
-        📨 노크 메일 발송
-      </button>
-    </form>
+      </div>
+      <form method="post" action="/deals/{{ deal.deal_id }}/reply-draft">
+        <textarea name="reply_draft" style="min-height:160px; margin-bottom:10px;">{{ deal.reply_draft or '' }}</textarea>
+        <button class="btn btn-gray" type="submit">저장</button>
+      </form>
+    </div>
+
+    {# 노크 초안 (있을 때만) #}
+    {% if deal.knock_draft %}
+    <div class="card" style="border-color:#fbbf24;">
+      <div class="card-title">📨 노크 초안</div>
+      <div style="background:#fffbeb; padding:12px 14px; border-radius:6px; line-height:1.7; white-space:pre-wrap; color:#374151;">{{ deal.knock_draft }}</div>
+    </div>
+    {% endif %}
+
+    {# 딜 조건 #}
+    <div class="card">
+      <div class="card-title">딜 조건 <span style="font-size:11px; color:#9ca3af; font-weight:400;">견적서·계약서 생성 전 입력</span></div>
+      <form method="post" action="/deals/{{ deal.deal_id }}/conditions">
+        <div class="grid-2" style="margin-bottom:10px;">
+          <div class="field"><label>서비스명</label><input type="text" name="cond_service_name" value="{{ deal.cond_service_name or '' }}"></div>
+          <div class="field"><label>단가</label><input type="text" name="cond_unit_price" placeholder="3000000" value="{{ deal.cond_unit_price or '' }}"></div>
+          <div class="field"><label>수량</label><input type="text" name="cond_quantity" placeholder="12" value="{{ deal.cond_quantity or '' }}"></div>
+          <div class="field"><label>결제 조건</label><input type="text" name="cond_payment_terms" value="{{ deal.cond_payment_terms or '' }}"></div>
+        </div>
+        <div class="field"><label>납품 범위</label><input type="text" name="cond_delivery_scope" value="{{ deal.cond_delivery_scope or '' }}"></div>
+        <div class="field"><label>서비스 설명</label><textarea name="cond_service_desc" style="min-height:56px;">{{ deal.cond_service_desc or '' }}</textarea></div>
+        <div class="field"><label>특이사항</label><textarea name="cond_notes" style="min-height:56px;">{{ deal.cond_notes or '' }}</textarea></div>
+        <button class="btn btn-gray" type="submit">저장</button>
+      </form>
+    </div>
+
+    {# 생성된 문서 #}
+    {% if deal.quote_path_v1 or deal.contract_path_v1 %}
+    <div class="card">
+      <div class="card-title">생성된 문서</div>
+      {% for v in [1,2,3] %}
+        {% set qp = deal['quote_path_v' ~ v] %}
+        {% set cp = deal['contract_path_v' ~ v] %}
+        {% if qp %}<div style="margin-bottom:6px; font-size:13px;">📄 견적서 v{{ v }}: <code style="background:#f3f4f6; padding:2px 6px; border-radius:4px;">{{ qp.split('/')[-1] }}</code></div>{% endif %}
+        {% if cp %}<div style="margin-bottom:6px; font-size:13px;">📋 계약서 v{{ v }}: <code style="background:#f3f4f6; padding:2px 6px; border-radius:4px;">{{ cp.split('/')[-1] }}</code></div>{% endif %}
+      {% endfor %}
+    </div>
+    {% endif %}
+
   </div>
-</div>
 
-{# ── 기본 정보 ── #}
-<div class="card">
-  <div class="card-title">문의 정보</div>
-  <div class="grid-3">
-    <div class="field"><label>회사</label><div class="field-value">{{ deal.company or '—' }}</div></div>
-    <div class="field"><label>담당자</label><div class="field-value">{{ deal.contact_name or '—' }}</div></div>
-    <div class="field"><label>직함</label><div class="field-value">{{ deal.contact_title or '—' }}</div></div>
-    <div class="field"><label>이메일</label><div class="field-value">{{ deal.email or '—' }}</div></div>
-    <div class="field"><label>전화</label><div class="field-value">{{ deal.contact_phone or '—' }}</div></div>
-    <div class="field"><label>문의 유형</label><div class="field-value">{{ deal.inquiry_type or '—' }}</div></div>
-    <div class="field"><label>관심 서비스</label><div class="field-value">{{ deal.service_interest or '—' }}</div></div>
+  {# ── 오른쪽 사이드바 ── #}
+  <div>
+
+    {# 연락처 #}
+    <div class="card">
+      <div class="card-title">연락처</div>
+      {% for label, value in [
+        ('회사',   deal.company),
+        ('담당자', deal.contact_name),
+        ('직함',   deal.contact_title),
+        ('이메일', deal.email),
+        ('전화',   deal.contact_phone),
+      ] %}
+      <div style="display:flex; padding:7px 0; border-bottom:1px solid #f3f4f6; font-size:13px; {% if loop.last %}border:none;{% endif %}">
+        <div style="width:60px; color:#9ca3af; flex-shrink:0;">{{ label }}</div>
+        <div style="color:#111;">{{ value or '—' }}</div>
+      </div>
+      {% endfor %}
+    </div>
+
+    {# 문의 정보 #}
+    <div class="card">
+      <div class="card-title">문의 정보</div>
+      {% for label, value in [
+        ('유형',      deal.inquiry_type),
+        ('관심 서비스', deal.service_interest),
+      ] %}
+      <div style="display:flex; padding:7px 0; border-bottom:1px solid #f3f4f6; font-size:13px; {% if loop.last %}border:none;{% endif %}">
+        <div style="width:80px; color:#9ca3af; flex-shrink:0;">{{ label }}</div>
+        <div style="color:#111;">{{ value or '—' }}</div>
+      </div>
+      {% endfor %}
+    </div>
+
+    {# Stage 변경 #}
+    <div class="card">
+      <div class="card-title">Stage 수동 변경</div>
+      <form method="post" action="/deals/{{ deal.deal_id }}/stage" style="display:flex; gap:8px;">
+        <select name="stage" style="flex:1;">
+          {% for s in stage_options %}
+          <option value="{{ s }}" {% if deal.stage == s %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select>
+        <button class="btn btn-gray" type="submit">변경</button>
+      </form>
+    </div>
+
+    {# 트리거 상태 #}
+    <div class="card">
+      <div class="card-title">트리거 상태</div>
+      {% set triggers = [
+        ('회신 발송',   deal.trigger_reply_send),
+        ('견적서 생성', deal.trigger_quote_gen),
+        ('계약서 생성', deal.trigger_contract_gen),
+        ('전자계약',   deal.trigger_contract_send),
+        ('노크 메일',  deal.trigger_knock_send),
+      ] %}
+      {% for label, val in triggers %}
+      <div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #f3f4f6; font-size:12px; {% if loop.last %}border:none;{% endif %}">
+        <span style="color:#6b7280;">{{ label }}</span>
+        <span style="font-weight:600;
+          {% if val == 'DONE' %}color:#16a34a;
+          {% elif val == 'ERROR' %}color:#dc2626;
+          {% elif val in ('PENDING','PROCESSING') %}color:#d97706;
+          {% else %}color:#d1d5db;{% endif %}">
+          {{ val or 'IDLE' }}
+        </span>
+      </div>
+      {% endfor %}
+    </div>
+
+    {# 타임스탬프 #}
+    <div style="font-size:11px; color:#d1d5db; padding:0 4px; line-height:1.8;">
+      접수: {{ deal.created_at[:19] if deal.created_at else '—' }}<br>
+      수정: {{ deal.updated_at[:19] if deal.updated_at else '—' }}
+    </div>
+
   </div>
-  <div class="field">
-    <label>요약</label>
-    <div class="field-value" style="background:#f9fafb; padding:10px; border-radius:6px; line-height:1.6;">
-      {{ deal.summary or '—' }}
-    </div>
-  </div>
-</div>
-
-{# ── Stage 변경 ── #}
-<div class="card">
-  <div class="card-title">Stage 수동 변경</div>
-  <form method="post" action="/deals/{{ deal.deal_id }}/stage" style="display:flex; gap:8px; align-items:flex-end;">
-    <div style="flex:1;">
-      <label>Stage</label>
-      <select name="stage">
-        {% for s in stage_options %}
-        <option value="{{ s }}" {% if deal.stage == s %}selected{% endif %}>{{ s }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <button class="btn btn-gray" type="submit">변경</button>
-  </form>
-</div>
-
-{# ── 회신 초안 ── #}
-<div class="card">
-  <div class="card-title">회신 초안 (편집 가능)</div>
-  <form method="post" action="/deals/{{ deal.deal_id }}/reply-draft">
-    <div class="field">
-      <textarea name="reply_draft" style="min-height:140px;">{{ deal.reply_draft or '' }}</textarea>
-    </div>
-    <button class="btn btn-gray" type="submit">저장</button>
-  </form>
-</div>
-
-{# ── 노크 초안 (있을 때만) ── #}
-{% if deal.knock_draft %}
-<div class="card">
-  <div class="card-title">노크 초안</div>
-  <div style="background:#fef9c3; padding:12px; border-radius:6px; line-height:1.7; white-space:pre-wrap;">{{ deal.knock_draft }}</div>
-</div>
-{% endif %}
-
-{# ── 딜 컨디션 ── #}
-<div class="card">
-  <div class="card-title">딜 조건 (견적/계약서 생성 전 입력)</div>
-  <form method="post" action="/deals/{{ deal.deal_id }}/conditions">
-    <div class="grid-2">
-      <div class="field"><label>서비스명</label><input type="text" name="cond_service_name" value="{{ deal.cond_service_name or '' }}"></div>
-      <div class="field"><label>단가</label><input type="text" name="cond_unit_price" value="{{ deal.cond_unit_price or '' }}"></div>
-      <div class="field"><label>수량</label><input type="text" name="cond_quantity" value="{{ deal.cond_quantity or '' }}"></div>
-      <div class="field"><label>결제 조건</label><input type="text" name="cond_payment_terms" value="{{ deal.cond_payment_terms or '' }}"></div>
-      <div class="field"><label>납품 범위</label><input type="text" name="cond_delivery_scope" value="{{ deal.cond_delivery_scope or '' }}"></div>
-    </div>
-    <div class="field"><label>서비스 설명</label><textarea name="cond_service_desc" style="min-height:60px;">{{ deal.cond_service_desc or '' }}</textarea></div>
-    <div class="field"><label>특이사항</label><textarea name="cond_notes" style="min-height:60px;">{{ deal.cond_notes or '' }}</textarea></div>
-    <button class="btn btn-gray" type="submit">저장</button>
-  </form>
-</div>
-
-{# ── 문서 링크 ── #}
-{% if deal.quote_path_v1 or deal.contract_path_v1 %}
-<div class="card">
-  <div class="card-title">생성된 문서</div>
-  {% if deal.quote_path_v1 %}<div style="margin-bottom:6px;">📄 견적서 v1: <code>{{ deal.quote_path_v1 }}</code></div>{% endif %}
-  {% if deal.quote_path_v2 %}<div style="margin-bottom:6px;">📄 견적서 v2: <code>{{ deal.quote_path_v2 }}</code></div>{% endif %}
-  {% if deal.quote_path_v3 %}<div style="margin-bottom:6px;">📄 견적서 v3: <code>{{ deal.quote_path_v3 }}</code></div>{% endif %}
-  {% if deal.contract_path_v1 %}<div style="margin-bottom:6px;">📋 계약서 v1: <code>{{ deal.contract_path_v1 }}</code></div>{% endif %}
-  {% if deal.contract_path_v2 %}<div style="margin-bottom:6px;">📋 계약서 v2: <code>{{ deal.contract_path_v2 }}</code></div>{% endif %}
-  {% if deal.contract_path_v3 %}<div style="margin-bottom:6px;">📋 계약서 v3: <code>{{ deal.contract_path_v3 }}</code></div>{% endif %}
-</div>
-{% endif %}
-
-{# ── 메타 정보 ── #}
-<div style="font-size:11px; color:#9ca3af; text-align:right; margin-top:8px;">
-  접수: {{ deal.created_at[:19] if deal.created_at else '—' }} &nbsp;|&nbsp;
-  수정: {{ deal.updated_at[:19] if deal.updated_at else '—' }}
 </div>
 
 {% endblock %}
