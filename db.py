@@ -158,11 +158,12 @@ def get_stage_counts() -> dict:
     return {r['stage']: r['cnt'] for r in rows}
 
 def get_action_needed() -> list:
-    """액션이 필요한 딜: REVIEWING, KNOCK, trigger ERROR, trigger PENDING"""
+    """액션이 필요한 딜: REVIEWING, 노크 미발송, trigger ERROR/PENDING"""
     with get_conn() as conn:
         rows = conn.execute("""
             SELECT * FROM deals
-            WHERE stage IN ('REVIEWING', 'KNOCK_REPLY', 'KNOCK_QUOTE')
+            WHERE stage = 'REVIEWING'
+               OR (stage IN ('KNOCK_REPLY', 'KNOCK_QUOTE') AND trigger_knock_send NOT IN ('DONE', 'PROCESSING'))
                OR trigger_reply_send   IN ('PENDING', 'ERROR')
                OR trigger_quote_gen    IN ('PENDING', 'ERROR')
                OR trigger_contract_gen IN ('PENDING', 'ERROR')

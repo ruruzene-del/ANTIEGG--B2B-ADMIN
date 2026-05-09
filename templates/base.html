@@ -39,12 +39,6 @@
     .sidebar-link:hover { background: #334155; color: #e2e8f0; }
     .sidebar-link.active { background: #2563eb; color: #fff; font-weight: 600; }
     .sidebar-link .icon { margin-right: 8px; font-size: 14px; }
-    .sidebar-count {
-      font-size: 11px; font-weight: 700; padding: 1px 7px;
-      border-radius: 999px; background: #334155; color: #94a3b8; min-width: 22px; text-align: center;
-    }
-    .sidebar-link.active .sidebar-count { background: rgba(255,255,255,.2); color: #fff; }
-    .sidebar-count.has-count { background: #dc2626; color: #fff; }
     .sidebar-divider { border: none; border-top: 1px solid #334155; margin: 10px 12px; }
 
     /* ── 메인 컨텐츠 ── */
@@ -143,7 +137,6 @@
         {% set cnt = stage_counts.get(stage, 0) %}
         <a href="/?stage={{ stage }}" class="sidebar-link {% if request.query_params.get('stage') == stage %}active{% endif %}">
           <span><span class="icon">{{ icon }}</span>{{ stage }}</span>
-          {% if cnt %}<span class="sidebar-count has-count">{{ cnt }}</span>{% endif %}
         </a>
         {% endfor %}
       </div>
@@ -159,10 +152,8 @@
           ('KNOCK_QUOTE', '📨'),
         ] %}
         {% for stage, icon in closed_stages %}
-        {% set cnt = stage_counts.get(stage, 0) %}
         <a href="/?stage={{ stage }}" class="sidebar-link {% if request.query_params.get('stage') == stage %}active{% endif %}">
           <span><span class="icon">{{ icon }}</span>{{ stage }}</span>
-          {% if cnt %}<span class="sidebar-count">{{ cnt }}</span>{% endif %}
         </a>
         {% endfor %}
       </div>
@@ -173,8 +164,6 @@
         <div class="sidebar-label">전체</div>
         <a href="/" class="sidebar-link {% if not request.query_params.get('stage') and request.url.path == '/' %}active{% endif %}">
           <span><span class="icon">📁</span>전체 딜</span>
-          {% set total = stage_counts.values() | sum %}
-          {% if total %}<span class="sidebar-count">{{ total }}</span>{% endif %}
         </a>
       </div>
 
