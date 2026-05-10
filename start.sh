@@ -56,6 +56,8 @@ disown $APP_PID
 echo "  PID: $APP_PID"
 
 echo "[4/4] ngrok 터널 시작 중..."
+pkill -f ngrok 2>/dev/null || true
+sleep 1
 > "$NGROK_LOG"
 nohup ngrok http 8000 --log=stdout >> "$NGROK_LOG" 2>&1 &
 NGROK_PID=$!
