@@ -1,8 +1,16 @@
 import json
 import re
 import requests
+from pathlib import Path
+from typing import Optional
 
 LLAMA_SERVER_URL = 'http://127.0.0.1:8080/v1/chat/completions'
+_ROOT_DIR = Path(__file__).parent
+_CONTEXT_DIR = _ROOT_DIR / 'ai_context'
+
+# ──────────────────────────────────────────────
+# 내부 유틸
+# ──────────────────────────────────────────────
 
 def _call(prompt: str) -> str:
     try:
@@ -23,6 +31,64 @@ def _call(prompt: str) -> str:
 
 def _strip_code_block(text: str) -> str:
     return re.sub(r'```(?:json)?', '', text).strip()
+
+# ──────────────────────────────────────────────
+# 스타일 가이드 & 사례 로딩 (모듈 레벨 캐시)
+# ──────────────────────────────────────────────
+
+_style_guide_cache: Optional[str] = None
+_examples_cache: Optional[list] = None
+
+def _load_style_guide() -> str:
+    """AI_MANUAL.md 우선 로드. 없으면 antiegg_style_guide.md 폴백."""
+    global _style_guide_cache
+    if _style_guide_cache is None:
+        manual = _ROOT_DIR / 'AI_MANUAL.md'
+        fallback = _CONTEXT_DIR / 'antiegg_style_guide.md'
+        if manual.exists():
+            _style_guide_cache = manual.read_text(encoding='utf-8')
+        elif fallback.exists():
+            _style_guide_cache = fallback.read_text(encoding='utf-8')
+        else:
+            _style_guide_cache = ''
+    return _style_guide_cache
+
+def _load_examples() -> list:
+    global _examples_cache
+    if _examples_cache is None:
+        path = _CONTEXT_DIR / 'reply_examples.json'
+        if path.exists():
+            data = json.loads(path.read_text(encoding='utf-8'))
+            _examples_cache = data.get('examples', [])
+        else:
+            _examples_cache = []
+    return _examples_cache
+
+def _find_examples(inquiry_type: str, n: int = 2) -> list:
+    """inquiry_type 일치 사례 우선 반환. 부족하면 다른 유형으로 채움."""
+    all_examples = _load_examples()
+    matched = [e for e in all_examples if e.get('inquiry_type') == inquiry_type]
+    if len(matched) < n:
+        others = [e for e in all_examples if e.get('inquiry_type') != inquiry_type]
+        matched = matched + others[:n - len(matched)]
+    return matched[:n]
+
+def _build_examples_block(examples: list) -> str:
+    if not examples:
+        return '(사례 없음)'
+    lines = []
+    for i, ex in enumerate(examples, 1):
+        lines.append(f'[사례 {i}]')
+        lines.append(f'문의 유형: {ex.get("inquiry_type", "")}')
+        lines.append(f'문의 요약: {ex.get("summary", "")}')
+        lines.append('회신:')
+        lines.append(ex.get('reply', ''))
+        lines.append('')
+    return '\n'.join(lines).strip()
+
+# ──────────────────────────────────────────────
+# 공개 함수
+# ──────────────────────────────────────────────
 
 def parse_email(email_body: str) -> dict:
     prompt = f"""아래 이메일에서 정보를 추출해 JSON으로만 응답하세요. 코드블록 없이 JSON만 출력하세요.
@@ -66,59 +132,66 @@ def parse_email(email_body: str) -> dict:
             'service_interest': '미상', 'summary': email_body[:200],
         }
 
-def generate_reply_draft(summary: str, contact_name: str = '') -> str:
-    prompt = f"""아래 B2B 문의 요약에 대한 1차 회신 초안을 작성하세요.
+def generate_reply_draft(summary: str, contact_name: str = '', inquiry_type: str = '') -> str:
+    style_guide = _load_style_guide()
+    examples = _find_examples(inquiry_type)
+    examples_block = _build_examples_block(examples)
+
+    name_str = f'{contact_name}님' if contact_name and contact_name != '미상' else '담당자님'
+
+    prompt = f"""[ANTIEGG 운영 스타일 가이드]
+{style_guide}
+
+[유사 회신 사례]
+{examples_block}
+
+[작성 지침]
 - 250~350자 한국어
-- 감사 인사 후, 미팅 전 파악이 필요한 추가 질문 2~3개 포함
-- 부드럽고 전문적인 톤
-- 이름을 알면 "OOO님" 형태로 호칭
+- 인사 + 감사 → 추가 질문 2~3개 → 마무리 구조
+- 위 사례의 말투와 구조를 참고하되, 내용은 아래 문의에 맞게 작성
+- 담당자 호칭: "{name_str}"
 
-[예시 1]
-문의 요약: ABC 물류 김철수 과장, AI 재고관리 솔루션 도입 문의, 50명 규모, 긴급
-회신 초안:
-안녕하세요 김철수 과장님, ANTIEGG입니다. 소중한 문의 감사드립니다.
-보다 정확한 안내를 드리기 위해 몇 가지 여쭤봐도 될까요?
-1. 현재 사용 중인 재고관리 시스템이 있으신가요?
-2. 가장 우선적으로 개선하고 싶으신 부분이 무엇인가요?
-3. 예산 범위를 대략적으로 공유해 주실 수 있으신가요?
-확인 후 빠르게 안내드리겠습니다. 감사합니다.
-
-[예시 2]
-문의 요약: XYZ 에이전시 이영희 대표, 공동 마케팅 파트너십 제안
-회신 초안:
-안녕하세요 이영희 대표님, ANTIEGG입니다. 파트너십 제안 주셔서 감사합니다.
-구체적인 협의를 위해 몇 가지 확인드려도 될까요?
-1. 어떤 형태의 공동 마케팅을 구상하고 계신가요?
-2. 희망하시는 협력 시작 시점이 있으신가요?
-3. 기존에 유사한 파트너십 진행 경험이 있으신지요?
-검토 후 연락드리겠습니다. 감사합니다.
-
-[실제 입력]
+[실제 문의]
+문의 유형: {inquiry_type or '기타'}
 문의 요약: {summary}
+
 회신 초안:"""
 
     return _call(prompt)
 
 def generate_knock_draft(company: str, contact_name: str, stage: str) -> str:
+    style_guide = _load_style_guide()
     name_str = f'{contact_name}님' if contact_name and contact_name != '미상' else '담당자님'
 
     if stage == 'KNOCK_REPLY':
-        prompt = f"""1차 회신 후 7일간 응답이 없는 고객에게 보낼 노크 메일 초안을 작성하세요.
-- 150~200자 한국어
-- 부담 없이 확인 요청하는 톤
-- 추가 문의 있으면 편히 연락달라는 내용
+        prompt = f"""[ANTIEGG 운영 스타일 가이드]
+{style_guide}
 
+[작성 지침]
+- 1차 회신 후 7일간 응답 없는 고객에게 보내는 노크 메일
+- 150~200자 한국어
+- 부담 없이 확인 요청하는 톤, 재촉 금지
+- 추가 문의 있으면 편히 연락달라는 내용 포함
+
+[실제 정보]
 회사명: {company}
 담당자: {name_str}
+
 노크 초안:"""
     else:
-        prompt = f"""견적서 발송 후 7일간 응답이 없는 고객에게 보낼 노크 메일 초안을 작성하세요.
-- 150~200자 한국어
-- 견적 검토 결과 확인, 조건 조율 가능하다는 내용
-- 부드러운 톤
+        prompt = f"""[ANTIEGG 운영 스타일 가이드]
+{style_guide}
 
+[작성 지침]
+- 견적서 발송 후 7일간 응답 없는 고객에게 보내는 노크 메일
+- 150~200자 한국어
+- 견적 검토 결과 확인, 조건 조율 가능하다는 내용을 자연스럽게 포함
+- 부드러운 톤, 재촉 금지
+
+[실제 정보]
 회사명: {company}
 담당자: {name_str}
+
 노크 초안:"""
 
     return _call(prompt)

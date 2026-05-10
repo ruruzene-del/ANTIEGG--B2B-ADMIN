@@ -34,6 +34,7 @@ def poll_inbox():
                 reply_draft = ai.generate_reply_draft(
                     parsed.get('summary', ''),
                     parsed.get('contact_name', ''),
+                    parsed.get('inquiry_type', ''),
                 )
                 parsed['reply_draft'] = reply_draft
 
