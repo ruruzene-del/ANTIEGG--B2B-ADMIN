@@ -11,3 +11,4 @@ venv/
 *.log
 app.log
 llama-server.log
+.pids
