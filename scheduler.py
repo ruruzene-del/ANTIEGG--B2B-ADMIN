@@ -15,7 +15,7 @@ APP_BASE_URL = os.getenv('APP_BASE_URL', 'http://localhost:8000').rstrip('/')
 logger = logging.getLogger(__name__)
 
 def poll_inbox():
-    """15분마다: IMAP 폴링 → Ollama 파싱 + 회신초안 → DB 저장 → Slack 알림"""
+    """1시간마다: IMAP 폴링 → Ollama 파싱 + 회신초안 → DB 저장 → Slack 알림"""
     logger.info('[poll_inbox] 시작')
     try:
         emails = email_client.fetch_new_emails()
@@ -242,7 +242,7 @@ def create_scheduler() -> BackgroundScheduler:
             'misfire_grace_time': 300,
         }
     )
-    scheduler.add_job(poll_inbox,         IntervalTrigger(minutes=15), id='poll_inbox')
+    scheduler.add_job(poll_inbox,         IntervalTrigger(hours=1),    id='poll_inbox')
     scheduler.add_job(process_reply_send, IntervalTrigger(minutes=5),  id='process_reply_send')
     scheduler.add_job(process_quote_gen,     IntervalTrigger(minutes=5),  id='process_quote_gen')
     scheduler.add_job(process_contract_gen,  IntervalTrigger(minutes=5),  id='process_contract_gen')
