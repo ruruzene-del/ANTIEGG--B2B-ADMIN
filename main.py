@@ -1,5 +1,6 @@
-import logging
 import os
+import logging
+from app.services import scheduler as sched
 from contextlib import asynccontextmanager
 from datetime import datetime
 from fastapi import FastAPI, Request, Form
@@ -8,8 +9,8 @@ from fastapi.templating import Jinja2Templates
 from dotenv import load_dotenv
 
 import db
-import scheduler as sched
-import slack
+from app.services import scheduler as sched
+from app.integrations import slack
 
 load_dotenv()
 logging.basicConfig(

@@ -21,7 +21,7 @@ echo "[1/4] llama-server 시작 중..." >> "$APP_LOG"
 llama-server \
   -m "$MODEL" \
   --host 127.0.0.1 --port 8080 \
-  --ctx-size 2048 \
+  --ctx-size 4096 \
   --n-gpu-layers 0 \
   --threads 8 \
   --log-disable \

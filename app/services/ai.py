@@ -40,17 +40,11 @@ _style_guide_cache: Optional[str] = None
 _examples_cache: Optional[list] = None
 
 def _load_style_guide() -> str:
-    """AI_MANUAL.md 우선 로드. 없으면 antiegg_style_guide.md 폴백."""
+    """프롬프트 주입용 — antiegg_style_guide.md 로드 (AI_MANUAL.md는 사람용 참조 문서)."""
     global _style_guide_cache
     if _style_guide_cache is None:
-        manual = _ROOT_DIR / 'AI_MANUAL.md'
-        fallback = _CONTEXT_DIR / 'antiegg_style_guide.md'
-        if manual.exists():
-            _style_guide_cache = manual.read_text(encoding='utf-8')
-        elif fallback.exists():
-            _style_guide_cache = fallback.read_text(encoding='utf-8')
-        else:
-            _style_guide_cache = ''
+        path = _CONTEXT_DIR / 'antiegg_style_guide.md'
+        _style_guide_cache = path.read_text(encoding='utf-8') if path.exists() else ''
     return _style_guide_cache
 
 def _load_examples() -> list:

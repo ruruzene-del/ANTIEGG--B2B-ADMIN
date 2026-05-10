@@ -5,10 +5,9 @@ from apscheduler.triggers.cron import CronTrigger
 
 import os
 import db
-import email_client
-import ai
-import slack
-import document
+from app.integrations import email_client
+from app.services import ai
+from app.services import document
 
 APP_BASE_URL = os.getenv('APP_BASE_URL', 'http://localhost:8000').rstrip('/')
 
