@@ -102,3 +102,44 @@ def send_email(to: str, subject: str, body: str):
     with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
         server.login(addr, pwd)
         server.send_message(msg)
+
+
+def _find_drafts_folder(mail: imaplib.IMAP4_SSL) -> str:
+    """\\Drafts 속성을 가진 Gmail 폴더명 반환."""
+    _, folders = mail.list()
+    for f in folders:
+        decoded = f.decode('utf-8', errors='replace')
+        if '\\Drafts' in decoded:
+            parts = decoded.split('"')
+            if len(parts) >= 2:
+                return parts[-2]
+    return '[Gmail]/Drafts'
+
+
+def create_draft(to: str, subject: str, body: str) -> None:
+    """Gmail 임시보관함에 초안 저장. 발송하지 않음."""
+    import time
+    import email.utils as eutils
+
+    addr, pwd, _ = _creds()
+    if not addr or not pwd:
+        raise RuntimeError('GMAIL_ADDRESS / GMAIL_APP_PASSWORD 미설정')
+
+    msg = MIMEMultipart()
+    msg['From'] = addr
+    msg['To'] = to
+    msg['Subject'] = subject
+    msg['Date'] = eutils.formatdate(localtime=True)
+    msg['Message-ID'] = eutils.make_msgid()
+    msg.attach(MIMEText(body, 'plain', 'utf-8'))
+
+    mail = imaplib.IMAP4_SSL('imap.gmail.com')
+    mail.login(addr, pwd)
+    drafts = _find_drafts_folder(mail)
+    mail.append(
+        drafts,
+        '\\Draft',
+        imaplib.Time2Internaldate(time.time()),
+        msg.as_bytes(),
+    )
+    mail.logout()

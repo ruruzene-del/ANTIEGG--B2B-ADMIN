@@ -53,23 +53,22 @@ def poll_inbox():
         slack.notify_errors(f'🔴 *poll_inbox IMAP 실패*\n에러: {str(e)}')
 
 def process_reply_send():
-    """5분마다: trigger_reply_send=PENDING → SMTP 발송 → stage=REPLIED"""
+    """5분마다: trigger_reply_send=PENDING → Gmail 임시보관 저장 (발송 안 함)"""
     deals = db.get_deals_by_trigger('trigger_reply_send', 'PENDING')
     for deal in deals:
         deal_id = deal['deal_id']
         try:
             db.update_deal(deal_id, {'trigger_reply_send': 'PROCESSING'})
-            email_client.send_email(
+            email_client.create_draft(
                 to=deal['email'],
                 subject=f'Re: {deal["company"]} 문의 답변드립니다',
                 body=deal['reply_draft'] or '',
             )
-            db.update_deal(deal_id, {
-                'trigger_reply_send': 'DONE',
-                'stage': 'REPLIED',
-            })
-            slack.notify_reply_sent(deal_id, deal['company'])
-            logger.info(f'[reply_send] 완료: {deal_id}')
+            db.update_deal(deal_id, {'trigger_reply_send': 'DRAFT'})
+            slack.notify_deals(
+                f'📝 *회신 초안 저장됨* | {deal_id} | {deal["company"]}\nGmail 임시보관에서 확인 후 발송해 주세요.'
+            )
+            logger.info(f'[reply_send] Gmail 초안 저장: {deal_id}')
         except Exception as e:
             db.update_deal(deal_id, {'trigger_reply_send': 'ERROR'})
             slack.notify_errors(
@@ -102,19 +101,22 @@ def check_no_response():
             )
 
 def process_knock_send():
-    """5분마다: trigger_knock_send=PENDING → SMTP 발송"""
+    """5분마다: trigger_knock_send=PENDING → Gmail 임시보관 저장 (발송 안 함)"""
     deals = db.get_deals_by_trigger('trigger_knock_send', 'PENDING')
     for deal in deals:
         deal_id = deal['deal_id']
         try:
             db.update_deal(deal_id, {'trigger_knock_send': 'PROCESSING'})
-            email_client.send_email(
+            email_client.create_draft(
                 to=deal['email'],
                 subject=f'Re: {deal["company"]} 문의 후속 연락드립니다',
                 body=deal['knock_draft'] or '',
             )
-            db.update_deal(deal_id, {'trigger_knock_send': 'DONE'})
-            logger.info(f'[knock_send] 완료: {deal_id}')
+            db.update_deal(deal_id, {'trigger_knock_send': 'DRAFT'})
+            slack.notify_deals(
+                f'📝 *노크 초안 저장됨* | {deal_id} | {deal["company"]}\nGmail 임시보관에서 확인 후 발송해 주세요.'
+            )
+            logger.info(f'[knock_send] Gmail 초안 저장: {deal_id}')
         except Exception as e:
             db.update_deal(deal_id, {'trigger_knock_send': 'ERROR'})
             slack.notify_errors(
@@ -122,47 +124,41 @@ def process_knock_send():
             )
 
 def process_quote_gen():
-    """5분마다: trigger_quote_gen=PENDING → 견적서 생성 → stage=QUOTED → Slack"""
+    """5분마다: trigger_quote_gen=PENDING → stage=QUOTED (HTML 미리보기 방식)"""
     deals = db.get_deals_by_trigger('trigger_quote_gen', 'PENDING')
     for deal in deals:
         deal_id = deal['deal_id']
         try:
-            db.update_deal(deal_id, {'trigger_quote_gen': 'PROCESSING'})
-            col, path = document.generate_quote(deal)
             db.update_deal(deal_id, {
-                col: path,
                 'trigger_quote_gen': 'DONE',
                 'stage': 'QUOTED',
             })
-            slack.notify_quote_ready(deal_id, deal['company'], path)
-            logger.info(f'[quote_gen] 완료: {deal_id} → {path}')
+            slack.notify_deals(
+                f'📄 *견적서 준비됨* | {deal_id} | {deal["company"]}\n어드민에서 PDF 미리보기 후 전달해 주세요.'
+            )
+            logger.info(f'[quote_gen] 완료: {deal_id}')
         except Exception as e:
             db.update_deal(deal_id, {'trigger_quote_gen': 'ERROR'})
-            slack.notify_errors(
-                f'🔴 *quote_gen 에러*\ndeal_id: {deal_id}\n에러: {str(e)}'
-            )
+            slack.notify_errors(f'🔴 *quote_gen 에러*\ndeal_id: {deal_id}\n에러: {str(e)}')
             logger.error(f'[quote_gen] 실패 {deal_id}: {e}')
 
 def process_contract_gen():
-    """5분마다: trigger_contract_gen=PENDING → 계약서 생성 → stage=CONTRACTING → Slack"""
+    """5분마다: trigger_contract_gen=PENDING → stage=CONTRACTING (HTML 미리보기 방식)"""
     deals = db.get_deals_by_trigger('trigger_contract_gen', 'PENDING')
     for deal in deals:
         deal_id = deal['deal_id']
         try:
-            db.update_deal(deal_id, {'trigger_contract_gen': 'PROCESSING'})
-            col, path = document.generate_contract(deal)
             db.update_deal(deal_id, {
-                col: path,
                 'trigger_contract_gen': 'DONE',
                 'stage': 'CONTRACTING',
             })
-            slack.notify_contract_ready(deal_id, deal['company'], path)
-            logger.info(f'[contract_gen] 완료: {deal_id} → {path}')
+            slack.notify_deals(
+                f'📋 *계약서 준비됨* | {deal_id} | {deal["company"]}\n어드민에서 PDF 미리보기 후 전자계약을 진행해 주세요.'
+            )
+            logger.info(f'[contract_gen] 완료: {deal_id}')
         except Exception as e:
             db.update_deal(deal_id, {'trigger_contract_gen': 'ERROR'})
-            slack.notify_errors(
-                f'🔴 *contract_gen 에러*\ndeal_id: {deal_id}\n에러: {str(e)}'
-            )
+            slack.notify_errors(f'🔴 *contract_gen 에러*\ndeal_id: {deal_id}\n에러: {str(e)}')
             logger.error(f'[contract_gen] 실패 {deal_id}: {e}')
 
 def _contract_email_body(deal: dict, sign_url: str, download_url: str) -> str:
@@ -190,7 +186,7 @@ def _contract_email_body(deal: dict, sign_url: str, download_url: str) -> str:
     )
 
 def process_contract_send():
-    """5분마다: trigger_contract_send=PENDING → 서명 토큰 생성 → 이메일 발송"""
+    """5분마다: trigger_contract_send=PENDING → 서명 토큰 생성 → Gmail 임시보관 저장"""
     deals = db.get_deals_by_trigger('trigger_contract_send', 'PENDING')
     for deal in deals:
         deal_id = deal['deal_id']
@@ -200,14 +196,16 @@ def process_contract_send():
             sign_url     = f'{APP_BASE_URL}/sign/{token}'
             download_url = f'{APP_BASE_URL}/download/{token}'
             body = _contract_email_body(deal, sign_url, download_url)
-            email_client.send_email(
+            email_client.create_draft(
                 to=deal['email'],
                 subject=f'[ANTIEGG] 용역 계약서 서명 요청 — {deal_id}',
                 body=body,
             )
-            db.update_deal(deal_id, {'trigger_contract_send': 'DONE'})
-            slack.notify_contract_sent(deal_id, deal['company'])
-            logger.info(f'[contract_send] 완료: {deal_id}')
+            db.update_deal(deal_id, {'trigger_contract_send': 'DRAFT'})
+            slack.notify_deals(
+                f'📝 *전자계약 초안 저장됨* | {deal_id} | {deal["company"]}\nGmail 임시보관에서 확인 후 발송해 주세요.'
+            )
+            logger.info(f'[contract_send] Gmail 초안 저장: {deal_id}')
         except Exception as e:
             db.update_deal(deal_id, {'trigger_contract_send': 'ERROR'})
             slack.notify_errors(

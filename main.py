@@ -188,6 +188,87 @@ async def sign_submit(request: Request, token: str, signer_name: str = Form(...)
         'just_signed': True,
     })
 
+@app.get('/preview/quote/{deal_id}', response_class=HTMLResponse)
+async def preview_quote(request: Request, deal_id: str):
+    deal = db.get_deal(deal_id)
+    if not deal:
+        return HTMLResponse('딜을 찾을 수 없습니다', status_code=404)
+
+    def _parse(v):
+        return int(''.join(c for c in str(v or '0') if c.isdigit()) or '0')
+
+    from datetime import datetime, timedelta
+    unit_price = _parse(deal.get('cond_unit_price'))
+    quantity   = _parse(deal.get('cond_quantity')) or 1
+    subtotal   = unit_price * quantity
+    vat        = int(subtotal * 0.1)
+    total      = subtotal + vat
+    today      = datetime.now()
+
+    return templates.TemplateResponse('quote_preview.html', {
+        'request':     request,
+        'deal':        deal,
+        'unit_price':  f'{unit_price:,}',
+        'quantity':    quantity,
+        'subtotal':    f'{subtotal:,}',
+        'vat':         f'{vat:,}',
+        'total':       f'{total:,}',
+        'quote_date':  today.strftime('%Y년 %m월 %d일'),
+        'valid_until': (today + timedelta(days=30)).strftime('%Y년 %m월 %d일'),
+        'ceo':         os.getenv('ANTIEGG_CEO', ''),
+        'biz_no':      os.getenv('ANTIEGG_BIZ_NO', ''),
+        'phone':       os.getenv('ANTIEGG_PHONE', ''),
+        'email':       os.getenv('ANTIEGG_EMAIL', ''),
+        'addr':        os.getenv('ANTIEGG_ADDR', ''),
+    })
+
+
+@app.get('/preview/contract/{deal_id}', response_class=HTMLResponse)
+async def preview_contract(request: Request, deal_id: str):
+    deal = db.get_deal(deal_id)
+    if not deal:
+        return HTMLResponse('딜을 찾을 수 없습니다', status_code=404)
+
+    def _parse(v):
+        return int(''.join(c for c in str(v or '0') if c.isdigit()) or '0')
+
+    from datetime import datetime
+    unit_price = _parse(deal.get('cond_unit_price'))
+    quantity   = _parse(deal.get('cond_quantity')) or 1
+    subtotal   = unit_price * quantity
+    vat        = int(subtotal * 0.1)
+    total      = subtotal + vat
+
+    return templates.TemplateResponse('contract_preview.html', {
+        'request':  request,
+        'deal':     deal,
+        'subtotal': f'{subtotal:,}',
+        'vat':      f'{vat:,}',
+        'total':    f'{total:,}',
+        'today':    datetime.now().strftime('%Y년 %m월 %d일'),
+        'ceo':      os.getenv('ANTIEGG_CEO', ''),
+        'biz_no':   os.getenv('ANTIEGG_BIZ_NO', ''),
+        'phone':    os.getenv('ANTIEGG_PHONE', ''),
+        'email':    os.getenv('ANTIEGG_EMAIL', ''),
+        'addr':     os.getenv('ANTIEGG_ADDR', ''),
+    })
+
+
+@app.get('/download/quote/{deal_id}')
+async def download_quote(deal_id: str):
+    deal = db.get_deal(deal_id)
+    if not deal:
+        return HTMLResponse('딜을 찾을 수 없습니다.', status_code=404)
+    for v in (3, 2, 1):
+        path = deal.get(f'quote_path_v{v}')
+        if path and os.path.exists(path):
+            return FileResponse(
+                path,
+                media_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                filename=f'{deal_id}_quote.docx',
+            )
+    return HTMLResponse('견적서 파일을 찾을 수 없습니다.', status_code=404)
+
 @app.get('/download/{token}')
 async def download_contract(token: str):
     deal = db.get_deal_by_sign_token(token)

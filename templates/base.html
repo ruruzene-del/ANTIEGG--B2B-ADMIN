@@ -6,94 +6,94 @@
   <title>{% block title %}ANTIEGG B2B{% endblock %}</title>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; background: #f5f5f5; color: #222; display: flex; flex-direction: column; min-height: 100vh; }
-    a { color: #2563eb; text-decoration: none; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; background: #F8F8F8; color: #111111; display: flex; flex-direction: column; min-height: 100vh; }
+    a { color: #2563EB; text-decoration: none; }
     a:hover { text-decoration: underline; }
 
     /* ── 상단 바 ── */
     .topbar {
       position: fixed; top: 0; left: 0; right: 0; height: 52px; z-index: 100;
-      background: #0f172a; display: flex; align-items: center; padding: 0 20px; gap: 12px;
+      background: #111111; display: flex; align-items: center; padding: 0 20px; gap: 12px;
     }
     .topbar-brand { font-weight: 700; font-size: 15px; color: #fff; letter-spacing: -.01em; }
-    .topbar-brand span { color: #60a5fa; }
+    .topbar-brand span { color: #555555; }
 
     /* ── 사이드바 ── */
     .sidebar {
       position: fixed; top: 52px; left: 0; bottom: 0; width: 220px;
-      background: #1e293b; overflow-y: auto; padding: 16px 0;
+      background: #111111; overflow-y: auto; padding: 16px 0;
       display: flex; flex-direction: column;
     }
     .sidebar-section { padding: 0 12px; margin-bottom: 4px; }
     .sidebar-label {
-      font-size: 10px; font-weight: 700; color: #475569;
+      font-size: 10px; font-weight: 600; color: #444444;
       letter-spacing: .08em; text-transform: uppercase;
       padding: 10px 8px 4px;
     }
     .sidebar-link {
       display: flex; align-items: center; justify-content: space-between;
-      padding: 7px 10px; border-radius: 6px; font-size: 13px; color: #94a3b8;
+      padding: 7px 10px; border-radius: 6px; font-size: 13px; color: #888888;
       cursor: pointer; transition: background .1s;
       text-decoration: none !important;
     }
-    .sidebar-link:hover { background: #334155; color: #e2e8f0; }
-    .sidebar-link.active { background: #2563eb; color: #fff; font-weight: 600; }
-    .sidebar-link .icon { margin-right: 8px; font-size: 14px; }
-    .sidebar-divider { border: none; border-top: 1px solid #334155; margin: 10px 12px; }
+    .sidebar-link:hover { background: #1F1F1F; color: #EEEEEE; }
+    .sidebar-link.active { background: #2563EB; color: #fff; font-weight: 600; }
+    .sidebar-link .icon { margin-right: 8px; font-size: 13px; }
+    .sidebar-divider { border: none; border-top: 1px solid #222222; margin: 10px 12px; }
 
     /* ── 메인 컨텐츠 ── */
     .layout { display: flex; padding-top: 52px; }
     .main { margin-left: 220px; flex: 1; padding: 24px; min-width: 0; }
 
     /* ── 카드 / 테이블 ── */
-    .card { background: #fff; border-radius: 8px; border: 1px solid #e5e7eb; padding: 20px; margin-bottom: 16px; }
-    .card-title { font-size: 14px; font-weight: 600; margin-bottom: 12px; color: #111; }
+    .card { background: #fff; border-radius: 8px; border: 1px solid #EBEBEB; padding: 20px; margin-bottom: 16px; }
+    .card-title { font-size: 13px; font-weight: 600; margin-bottom: 12px; color: #111111; letter-spacing: -.01em; }
 
     table { width: 100%; border-collapse: collapse; }
-    th { background: #f9fafb; text-align: left; padding: 10px 12px; font-size: 12px; font-weight: 600; color: #6b7280; border-bottom: 1px solid #e5e7eb; }
-    td { padding: 10px 12px; border-bottom: 1px solid #f3f4f6; vertical-align: middle; }
+    th { background: #FAFAFA; text-align: left; padding: 10px 12px; font-size: 11px; font-weight: 600; color: #999999; border-bottom: 1px solid #EBEBEB; text-transform: uppercase; letter-spacing: .04em; }
+    td { padding: 10px 12px; border-bottom: 1px solid #F5F5F5; vertical-align: middle; }
     tr:last-child td { border-bottom: none; }
-    tr:hover td { background: #fafafa; }
+    tr:hover td { background: #FAFAFA; }
 
-    /* ── 배지 ── */
-    .badge { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; }
-    .badge-reviewing   { background: #dbeafe; color: #1d4ed8; }
-    .badge-replied     { background: #d1fae5; color: #065f46; }
-    .badge-negotiating { background: #fef9c3; color: #854d0e; }
-    .badge-quoted      { background: #ffedd5; color: #9a3412; }
-    .badge-contracting { background: #ede9fe; color: #6d28d9; }
-    .badge-signed      { background: #d1fae5; color: #065f46; }
-    .badge-closed_won  { background: #166534; color: #fff; }
-    .badge-knock_reply { background: #fee2e2; color: #991b1b; }
-    .badge-knock_quote { background: #fee2e2; color: #991b1b; }
-    .badge-closed_lost { background: #374151; color: #fff; }
-    .badge-inquiry     { background: #f3f4f6; color: #374151; }
+    /* ── 배지 — 상태 구분용 컬러만 사용 ── */
+    .badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+    .badge-reviewing   { background: #F3F4F6; color: #6B7280; }
+    .badge-replied     { background: #DBEAFE; color: #1D4ED8; }
+    .badge-negotiating { background: #EDE9FE; color: #5B21B6; }
+    .badge-quoted      { background: #FEF3C7; color: #92400E; }
+    .badge-contracting { background: #D1FAE5; color: #065F46; }
+    .badge-signed      { background: #DCFCE7; color: #166534; }
+    .badge-closed_won  { background: #111111; color: #FFFFFF; }
+    .badge-knock_reply { background: #FEF3C7; color: #92400E; }
+    .badge-knock_quote { background: #FEF3C7; color: #92400E; }
+    .badge-closed_lost { background: #374151; color: #FFFFFF; }
+    .badge-inquiry     { background: #F3F4F6; color: #6B7280; }
 
     /* ── 버튼 ── */
     .btn { display: inline-block; padding: 7px 14px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; }
-    .btn:disabled { opacity: .5; cursor: not-allowed; }
-    .btn-primary  { background: #2563eb; color: #fff; }
-    .btn-primary:hover:not(:disabled) { background: #1d4ed8; }
-    .btn-green    { background: #16a34a; color: #fff; }
-    .btn-green:hover:not(:disabled) { background: #15803d; }
-    .btn-orange   { background: #ea580c; color: #fff; }
-    .btn-orange:hover:not(:disabled) { background: #c2410c; }
-    .btn-purple   { background: #7c3aed; color: #fff; }
-    .btn-purple:hover:not(:disabled) { background: #6d28d9; }
-    .btn-red      { background: #dc2626; color: #fff; }
-    .btn-red:hover:not(:disabled) { background: #b91c1c; }
-    .btn-gray     { background: #e5e7eb; color: #374151; }
-    .btn-gray:hover:not(:disabled) { background: #d1d5db; }
+    .btn:disabled { opacity: .35; cursor: not-allowed; }
+    .btn-primary  { background: #2563EB; color: #fff; }
+    .btn-primary:hover:not(:disabled) { background: #1D4ED8; }
+    .btn-green    { background: #1F2937; color: #fff; }
+    .btn-green:hover:not(:disabled) { background: #374151; }
+    .btn-orange   { background: #1F2937; color: #fff; }
+    .btn-orange:hover:not(:disabled) { background: #374151; }
+    .btn-purple   { background: #1F2937; color: #fff; }
+    .btn-purple:hover:not(:disabled) { background: #374151; }
+    .btn-red      { background: #991B1B; color: #fff; }
+    .btn-red:hover:not(:disabled) { background: #7F1D1D; }
+    .btn-gray     { background: #F3F4F6; color: #374151; }
+    .btn-gray:hover:not(:disabled) { background: #E5E7EB; }
 
     /* ── 폼 ── */
-    label { display: block; font-size: 12px; font-weight: 600; color: #6b7280; margin-bottom: 4px; }
+    label { display: block; font-size: 12px; font-weight: 600; color: #6B7280; margin-bottom: 4px; }
     input[type=text], select, textarea {
-      width: 100%; padding: 7px 10px; border: 1px solid #d1d5db;
-      border-radius: 6px; font-size: 13px; font-family: inherit;
+      width: 100%; padding: 7px 10px; border: 1px solid #E5E7EB;
+      border-radius: 6px; font-size: 13px; font-family: inherit; background: #fff;
     }
     textarea { resize: vertical; min-height: 100px; }
     input[type=text]:focus, select:focus, textarea:focus {
-      outline: none; border-color: #2563eb; box-shadow: 0 0 0 2px rgba(37,99,235,.15);
+      outline: none; border-color: #2563EB; box-shadow: 0 0 0 3px rgba(37,99,235,.1);
     }
 
     /* ── 유틸 ── */
@@ -126,12 +126,12 @@
       <div class="sidebar-section">
         <div class="sidebar-label">진행 딜</div>
         {% set active_stages = [
-          ('REVIEWING',   '🔵'),
-          ('REPLIED',     '🟢'),
-          ('NEGOTIATING', '🟡'),
-          ('QUOTED',      '🟠'),
-          ('CONTRACTING', '🟣'),
-          ('SIGNED',      '✅'),
+          ('REVIEWING',   '·'),
+          ('REPLIED',     '·'),
+          ('NEGOTIATING', '·'),
+          ('QUOTED',      '·'),
+          ('CONTRACTING', '·'),
+          ('SIGNED',      '·'),
         ] %}
         {% for stage, icon in active_stages %}
         {% set cnt = stage_counts.get(stage, 0) %}
@@ -146,10 +146,10 @@
       <div class="sidebar-section">
         <div class="sidebar-label">종료 딜</div>
         {% set closed_stages = [
-          ('CLOSED_WON',  '🏆'),
-          ('CLOSED_LOST', '🔒'),
-          ('KNOCK_REPLY', '📨'),
-          ('KNOCK_QUOTE', '📨'),
+          ('CLOSED_WON',  '·'),
+          ('CLOSED_LOST', '·'),
+          ('KNOCK_REPLY', '·'),
+          ('KNOCK_QUOTE', '·'),
         ] %}
         {% for stage, icon in closed_stages %}
         <a href="/?stage={{ stage }}" class="sidebar-link {% if request.query_params.get('stage') == stage %}active{% endif %}">

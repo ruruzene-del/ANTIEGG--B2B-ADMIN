@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>계약서 — {{ deal.deal_id }}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Malgun Gothic', '맑은 고딕', 'Apple SD Gothic Neo', sans-serif;
+      font-size: 13px;
+      color: #111;
+      background: #f0f0f0;
+    }
+
+    .toolbar {
+      position: fixed; top: 0; left: 0; right: 0; z-index: 100;
+      background: #111; color: #fff;
+      padding: 10px 24px;
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .toolbar-title { font-size: 13px; font-weight: 600; }
+    .toolbar-meta  { font-size: 12px; color: #888; }
+    .btn-print {
+      background: #2563EB; color: #fff;
+      border: none; border-radius: 6px;
+      padding: 7px 18px; font-size: 13px; font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-print:hover { background: #1D4ED8; }
+    .btn-back {
+      background: transparent; color: #aaa;
+      border: 1px solid #444; border-radius: 6px;
+      padding: 6px 14px; font-size: 12px;
+      cursor: pointer; margin-right: 8px; text-decoration: none;
+    }
+
+    .page-wrap { padding: 68px 24px 40px; }
+    .page {
+      width: 210mm;
+      min-height: 297mm;
+      margin: 0 auto;
+      background: #fff;
+      padding: 20mm 22mm 18mm;
+      box-shadow: 0 4px 24px rgba(0,0,0,.12);
+    }
+
+    .doc-title {
+      text-align: center;
+      font-size: 24px;
+      font-weight: 700;
+      letter-spacing: .3em;
+      color: #1F3864;
+      margin-bottom: 28px;
+    }
+
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid #c8c8c8; padding: 7px 10px; font-size: 12px; }
+    .th-dark { background: #1F3864; color: #fff; font-weight: 600; text-align: center; }
+
+    .parties-table { margin-bottom: 24px; }
+    .parties-table td { vertical-align: middle; }
+
+    .article { margin-bottom: 14px; }
+    .article-title {
+      font-size: 12px; font-weight: 700; color: #1F3864;
+      margin-bottom: 5px;
+    }
+    .article-body {
+      font-size: 12px; line-height: 1.8;
+      padding-left: 4px;
+      white-space: pre-line;
+    }
+
+    .sign-date {
+      text-align: center;
+      font-size: 13px; font-weight: 600;
+      margin: 28px 0 20px;
+    }
+
+    .sign-table { margin-top: 8px; }
+
+    @media print {
+      .toolbar, .page-wrap { display: none; }
+      body { background: #fff; }
+    }
+    @media print {
+      .page {
+        display: block;
+        width: 100%; margin: 0; padding: 14mm 18mm;
+        box-shadow: none;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<div class="toolbar">
+  <div>
+    <span class="toolbar-title">계약서 — {{ deal.deal_id }}</span>
+    <span class="toolbar-meta" style="margin-left:12px;">{{ deal.company }}</span>
+  </div>
+  <div>
+    <a class="btn-back" href="/deals/{{ deal.deal_id }}">← 돌아가기</a>
+    <button class="btn-print" onclick="window.print()">PDF 저장 (⌘P)</button>
+  </div>
+</div>
+
+<div class="page-wrap">
+<div class="page">
+
+  <div class="doc-title">용&nbsp;&nbsp;역&nbsp;&nbsp;계&nbsp;&nbsp;약&nbsp;&nbsp;서</div>
+
+  <!-- 계약 당사자 -->
+  <table class="parties-table">
+    <tr>
+      <td class="th-dark" colspan="2" style="width:50%;">갑 (발주자)</td>
+      <td class="th-dark" colspan="2">을 (수급자)</td>
+    </tr>
+    <tr>
+      <td class="th-dark" style="width:70px;">상&nbsp;&nbsp;&nbsp;호</td>
+      <td>{{ deal.company or '' }}</td>
+      <td class="th-dark" style="width:70px;">상&nbsp;&nbsp;&nbsp;호</td>
+      <td>ANTIEGG</td>
+    </tr>
+    <tr>
+      <td class="th-dark">대표자</td>
+      <td>{{ deal.cond_company_ceo or '' }}</td>
+      <td class="th-dark">대표자</td>
+      <td>{{ ceo }}</td>
+    </tr>
+    <tr>
+      <td class="th-dark">사업자번호</td>
+      <td>{{ deal.cond_company_biz_no or '' }}</td>
+      <td class="th-dark">사업자번호</td>
+      <td>{{ biz_no }}</td>
+    </tr>
+    <tr>
+      <td class="th-dark">연락처</td>
+      <td>{{ deal.contact_phone or deal.email or '' }}</td>
+      <td class="th-dark">연락처</td>
+      <td>{{ phone or email }}</td>
+    </tr>
+  </table>
+
+  <!-- 조항 -->
+  <div class="article">
+    <div class="article-title">제1조 (목적)</div>
+    <div class="article-body">본 계약은 {{ deal.company or '갑' }}(이하 "갑"이라 한다)와 ANTIEGG(이하 "을"이라 한다) 간에 {{ deal.cond_service_name or '서비스' }} 제공에 관한 권리와 의무를 규정함을 목적으로 한다.</div>
+  </div>
+
+  <div class="article">
+    <div class="article-title">제2조 (용역 범위)</div>
+    <div class="article-body">1. 서비스명: {{ deal.cond_service_name or '' }}
+2. 내용: {{ deal.cond_service_desc or '' }}
+3. 납품 범위: {{ deal.cond_delivery_scope or '별도 협의' }}</div>
+  </div>
+
+  <div class="article">
+    <div class="article-title">제3조 (계약 기간)</div>
+    <div class="article-body">계약 기간은 {{ deal.cond_contract_start or '___년 ___월 ___일' }}부터 {{ deal.cond_contract_end or '___년 ___월 ___일' }}까지로 한다.</div>
+  </div>
+
+  <div class="article">
+    <div class="article-title">제4조 (계약 금액)</div>
+    <div class="article-body">공급가액: {{ subtotal }}원
+부가가치세 (10%): {{ vat }}원
+합계 (VAT 포함): {{ total }}원</div>
+  </div>
+
+  <div class="article">
+    <div class="article-title">제5조 (결제 조건)</div>
+    <div class="article-body">{{ deal.cond_payment_terms or '계약 체결 후 별도 협의' }}</div>
+  </div>
+
+  {% if deal.cond_notes %}
+  <div class="article">
+    <div class="article-title">제6조 (특이사항)</div>
+    <div class="article-body">{{ deal.cond_notes }}</div>
+  </div>
+  {% endif %}
+
+  <div class="article">
+    <div class="article-title">제{{ '7' if deal.cond_notes else '6' }}조 (일반 조항)</div>
+    <div class="article-body">① 본 계약에 명시되지 않은 사항은 관련 법령 및 상관례에 따른다.
+② 본 계약과 관련하여 분쟁이 발생한 경우 갑, 을이 협의하여 해결한다.</div>
+  </div>
+
+  <!-- 체결일 -->
+  <div class="sign-date">{{ today }}</div>
+
+  <!-- 서명란 -->
+  <table class="sign-table">
+    <tr>
+      <td class="th-dark" colspan="2" style="width:50%;">갑 (발주자)</td>
+      <td class="th-dark" colspan="2">을 (수급자)</td>
+    </tr>
+    <tr>
+      <td class="th-dark" style="width:70px;">상&nbsp;&nbsp;&nbsp;호</td>
+      <td>{{ deal.company or '' }}</td>
+      <td class="th-dark" style="width:70px;">상&nbsp;&nbsp;&nbsp;호</td>
+      <td>ANTIEGG</td>
+    </tr>
+    <tr>
+      <td class="th-dark">대표자</td>
+      <td style="padding:16px 10px;">{{ deal.cond_company_ceo or '' }}&nbsp;&nbsp;&nbsp;(인)</td>
+      <td class="th-dark">대표자</td>
+      <td style="padding:16px 10px;">{{ ceo }}&nbsp;&nbsp;&nbsp;(인)</td>
+    </tr>
+    <tr>
+      <td class="th-dark">사업자번호</td>
+      <td>{{ deal.cond_company_biz_no or '' }}</td>
+      <td class="th-dark">사업자번호</td>
+      <td>{{ biz_no }}</td>
+    </tr>
+  </table>
+
+</div>
+</div>
+
+</body>
+</html>

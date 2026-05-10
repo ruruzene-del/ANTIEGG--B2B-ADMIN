@@ -38,29 +38,39 @@
         <form method="post" action="/deals/{{ deal.deal_id }}/trigger/{{ route }}">
           <button class="btn btn-{{ cls }}" type="submit"
             {% if col_val not in ('IDLE', 'ERROR', None) %}disabled{% endif %}
-            style="{% if col_val == 'ERROR' %}outline:2px solid #dc2626;{% endif %}">
+            style="{% if col_val == 'ERROR' %}outline:2px solid #DC2626;{% endif %}">
             {{ label }}
             {% if col_val == 'PENDING' %}<span style="font-size:10px; opacity:.7;"> 대기중</span>
             {% elif col_val == 'PROCESSING' %}<span style="font-size:10px; opacity:.7;"> 처리중</span>
             {% elif col_val == 'DONE' %}<span style="font-size:10px; opacity:.7;"> 완료</span>
+            {% elif col_val == 'DRAFT' %}<span style="font-size:10px; opacity:.7;"> 초안 저장됨</span>
             {% elif col_val == 'ERROR' %}<span style="font-size:10px;"> ⚠️재시도</span>
             {% endif %}
           </button>
         </form>
         {% endmacro %}
 
-        {{ trigger_btn('✉️ 1차 회신 발송',  'reply-send',    deal.trigger_reply_send,    'primary') }}
-        {{ trigger_btn('📄 견적서 생성',     'quote-gen',     deal.trigger_quote_gen,     'green') }}
-        {{ trigger_btn('📋 계약서 생성',     'contract-gen',  deal.trigger_contract_gen,  'orange') }}
-        {{ trigger_btn('🖊️ 전자계약 발송',  'contract-send', deal.trigger_contract_send, 'purple') }}
-        {{ trigger_btn('📨 노크 메일 발송',  'knock-send',    deal.trigger_knock_send,    'red') }}
+        {{ trigger_btn('✉️ 회신 초안 → Gmail',    'reply-send',    deal.trigger_reply_send,    'primary') }}
+        {{ trigger_btn('📄 견적서 생성',            'quote-gen',     deal.trigger_quote_gen,     'green') }}
+        {{ trigger_btn('📋 계약서 생성',            'contract-gen',  deal.trigger_contract_gen,  'orange') }}
+        {{ trigger_btn('🖊️ 전자계약 초안 → Gmail', 'contract-send', deal.trigger_contract_send, 'purple') }}
+        {{ trigger_btn('📨 노크 초안 → Gmail',     'knock-send',    deal.trigger_knock_send,    'red') }}
+
+        {# Gmail 임시보관 알림 #}
+        {% if deal.trigger_reply_send == 'DRAFT' or deal.trigger_knock_send == 'DRAFT' or deal.trigger_contract_send == 'DRAFT' %}
+        <div style="width:100%; margin-top:10px; padding:10px 14px; background:#EFF6FF; border:1px solid #BFDBFE; border-radius:6px; font-size:12px; color:#1D4ED8; display:flex; align-items:center; gap:8px;">
+          <span>📬</span>
+          <span>Gmail 임시보관함에 초안이 저장되었습니다. Gmail에서 내용을 확인·수정 후 직접 발송해 주세요. 발송 후 아래에서 Stage를 수동으로 변경해 주세요.</span>
+          <a href="https://mail.google.com/mail/u/0/#drafts" target="_blank" style="color:#1D4ED8; font-weight:600; white-space:nowrap;">Gmail 열기 →</a>
+        </div>
+        {% endif %}
       </div>
     </div>
 
     {# 문의 요약 #}
     <div class="card">
       <div class="card-title">문의 요약</div>
-      <div style="background:#f8fafc; border-left:3px solid #2563eb; padding:12px 14px; border-radius:0 6px 6px 0; line-height:1.7; color:#374151;">
+      <div style="background:#F8FAFF; border-left:3px solid #2563EB; padding:12px 14px; border-radius:0 6px 6px 0; line-height:1.7; color:#374151;">
         {{ deal.summary or '—' }}
       </div>
     </div>
@@ -70,7 +80,7 @@
       <div class="card-title">
         회신 초안
         {% if deal.trigger_reply_send == 'DONE' %}
-          <span style="font-size:11px; color:#16a34a; font-weight:400; margin-left:8px;">✓ 발송 완료</span>
+          <span style="font-size:11px; color:#16A34A; font-weight:500; margin-left:8px;">✓ 발송 완료</span>
         {% endif %}
       </div>
       <form method="post" action="/deals/{{ deal.deal_id }}/reply-draft">
@@ -81,9 +91,9 @@
 
     {# 노크 초안 (있을 때만) #}
     {% if deal.knock_draft %}
-    <div class="card" style="border-color:#fbbf24;">
-      <div class="card-title">📨 노크 초안</div>
-      <div style="background:#fffbeb; padding:12px 14px; border-radius:6px; line-height:1.7; white-space:pre-wrap; color:#374151;">{{ deal.knock_draft }}</div>
+    <div class="card" style="border-color:#d8d8d8;">
+      <div class="card-title">노크 초안</div>
+      <div style="background:#f7f7f7; padding:12px 14px; border-radius:6px; line-height:1.7; white-space:pre-wrap; color:#333333;">{{ deal.knock_draft }}</div>
     </div>
     {% endif %}
 
@@ -117,15 +127,28 @@
     </div>
 
     {# 생성된 문서 #}
-    {% if deal.quote_path_v1 or deal.contract_path_v1 %}
+    {% if deal.trigger_quote_gen == 'DONE' or deal.trigger_contract_gen == 'DONE' %}
     <div class="card">
-      <div class="card-title">생성된 문서</div>
-      {% for v in [1,2,3] %}
-        {% set qp = deal['quote_path_v' ~ v] %}
-        {% set cp = deal['contract_path_v' ~ v] %}
-        {% if qp %}<div style="margin-bottom:6px; font-size:13px;">📄 견적서 v{{ v }}: <code style="background:#f3f4f6; padding:2px 6px; border-radius:4px;">{{ qp.split('/')[-1] }}</code></div>{% endif %}
-        {% if cp %}<div style="margin-bottom:6px; font-size:13px;">📋 계약서 v{{ v }}: <code style="background:#f3f4f6; padding:2px 6px; border-radius:4px;">{{ cp.split('/')[-1] }}</code></div>{% endif %}
-      {% endfor %}
+      <div class="card-title">문서 미리보기 / PDF</div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap;">
+        {% if deal.trigger_quote_gen == 'DONE' %}
+        <a href="/preview/quote/{{ deal.deal_id }}" target="_blank"
+           style="display:inline-flex; align-items:center; gap:6px; padding:8px 16px;
+                  background:#F8F8F8; border:1px solid #E0E0E0; border-radius:6px;
+                  font-size:13px; color:#111; text-decoration:none; font-weight:500;">
+          📄 견적서 미리보기 · PDF
+        </a>
+        {% endif %}
+        {% if deal.trigger_contract_gen == 'DONE' %}
+        <a href="/preview/contract/{{ deal.deal_id }}" target="_blank"
+           style="display:inline-flex; align-items:center; gap:6px; padding:8px 16px;
+                  background:#F8F8F8; border:1px solid #E0E0E0; border-radius:6px;
+                  font-size:13px; color:#111; text-decoration:none; font-weight:500;">
+          📋 계약서 미리보기 · PDF
+        </a>
+        {% endif %}
+      </div>
+      <div style="margin-top:10px; font-size:11px; color:#9CA3AF;">미리보기 페이지에서 ⌘P (또는 Ctrl+P) → PDF로 저장</div>
     </div>
     {% endif %}
 
@@ -192,10 +215,11 @@
       <div style="display:flex; justify-content:space-between; padding:6px 0; border-bottom:1px solid #f3f4f6; font-size:12px; {% if loop.last %}border:none;{% endif %}">
         <span style="color:#6b7280;">{{ label }}</span>
         <span style="font-weight:600;
-          {% if val == 'DONE' %}color:#16a34a;
-          {% elif val == 'ERROR' %}color:#dc2626;
-          {% elif val in ('PENDING','PROCESSING') %}color:#d97706;
-          {% else %}color:#d1d5db;{% endif %}">
+          {% if val == 'DONE' %}color:#16A34A;
+          {% elif val == 'DRAFT' %}color:#2563EB;
+          {% elif val == 'ERROR' %}color:#DC2626;
+          {% elif val in ('PENDING','PROCESSING') %}color:#D97706;
+          {% else %}color:#D1D5DB;{% endif %}">
           {{ val or 'IDLE' }}
         </span>
       </div>

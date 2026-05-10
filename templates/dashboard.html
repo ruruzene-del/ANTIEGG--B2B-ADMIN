@@ -6,15 +6,18 @@
 {# ── KPI 카드 ── #}
 <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:12px; margin-bottom:20px;">
   {% set cards = [
-    ('전체 딜',      stats.total,        '#2563eb', '📁'),
-    ('진행 중',      stats.active,       '#16a34a', '🔄'),
-    ('계약 완료',    stats.closed_won,   '#166534', '✅'),
-    ('액션 필요',    stats.needs_action, '#dc2626', '⚠️'),
+    ('전체 딜',   stats.total,        ''),
+    ('진행 중',   stats.active,       ''),
+    ('계약 완료', stats.closed_won,   '#166534'),
+    ('액션 필요', stats.needs_action, '#DC2626'),
   ] %}
-  {% for label, value, color, icon in cards %}
-  <div style="background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:18px 20px;">
-    <div style="font-size:11px; font-weight:600; color:#6b7280; text-transform:uppercase; letter-spacing:.05em; margin-bottom:6px;">{{ icon }} {{ label }}</div>
-    <div style="font-size:32px; font-weight:700; color:{{ color }};">{{ value }}</div>
+  {% for label, value, accent in cards %}
+  <div style="background:#fff; border:1px solid #EBEBEB; border-radius:8px; padding:18px 20px;">
+    <div style="font-size:11px; font-weight:600; color:#9CA3AF; text-transform:uppercase; letter-spacing:.05em; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
+      {% if accent %}<span style="width:6px; height:6px; border-radius:50%; background:{{ accent }}; display:inline-block; flex-shrink:0;"></span>{% endif %}
+      {{ label }}
+    </div>
+    <div style="font-size:30px; font-weight:700; color:#111111; line-height:1;">{{ value }}</div>
   </div>
   {% endfor %}
 </div>
@@ -25,15 +28,15 @@
   <div style="display:flex; gap:0; align-items:stretch;">
     {% for item in pipeline %}
     {% set colors = {
-      'REVIEWING':   ('#dbeafe','#1d4ed8'),
-      'REPLIED':     ('#d1fae5','#065f46'),
-      'NEGOTIATING': ('#fef9c3','#854d0e'),
-      'QUOTED':      ('#ffedd5','#9a3412'),
-      'CONTRACTING': ('#ede9fe','#6d28d9'),
-      'SIGNED':      ('#d1fae5','#065f46'),
-      'CLOSED_WON':  ('#166534','#fff'),
+      'REVIEWING':   ('#F3F4F6','#6B7280'),
+      'REPLIED':     ('#DBEAFE','#1D4ED8'),
+      'NEGOTIATING': ('#EDE9FE','#5B21B6'),
+      'QUOTED':      ('#FEF3C7','#92400E'),
+      'CONTRACTING': ('#D1FAE5','#065F46'),
+      'SIGNED':      ('#DCFCE7','#166534'),
+      'CLOSED_WON':  ('#111111','#FFFFFF'),
     } %}
-    {% set bg, fg = colors.get(item.stage, ('#f3f4f6','#374151')) %}
+    {% set bg, fg = colors.get(item.stage, ('#F3F4F6','#6B7280')) %}
     <div style="flex:1; background:{{ bg }}; padding:12px 8px; text-align:center;
                 border-right:2px solid #fff;
                 {% if loop.first %}border-radius:8px 0 0 8px;{% endif %}
@@ -47,8 +50,8 @@
 
 {# ── 액션 필요 ── #}
 {% if action_deals %}
-<div class="card" style="margin-bottom:20px; border-color:#fca5a5;">
-  <div class="card-title" style="color:#dc2626;">⚠️ 액션 필요 ({{ action_deals|length }}건)</div>
+<div class="card" style="margin-bottom:20px; border-color:#FECACA;">
+  <div class="card-title" style="color:#111111;">액션 필요 <span style="color:#DC2626; font-weight:700;">{{ action_deals|length }}건</span></div>
   <table>
     <thead>
       <tr>
@@ -69,23 +72,23 @@
         <td><span class="badge badge-{{ deal.stage|lower|replace('_','-') }}">{{ deal.stage }}</span></td>
         <td>
           {% if deal.stage == 'REVIEWING' %}
-            <span style="color:#dc2626; font-size:12px; font-weight:600;">회신 초안 확인 필요</span>
+            <span style="color:#D97706; font-size:12px; font-weight:600;">회신 초안 확인 필요</span>
           {% elif deal.stage in ('KNOCK_REPLY', 'KNOCK_QUOTE') %}
-            <span style="color:#dc2626; font-size:12px; font-weight:600;">노크 메일 발송 필요</span>
+            <span style="color:#D97706; font-size:12px; font-weight:600;">노크 메일 발송 필요</span>
           {% elif deal.trigger_reply_send == 'ERROR' or deal.trigger_quote_gen == 'ERROR'
                or deal.trigger_contract_gen == 'ERROR' or deal.trigger_contract_send == 'ERROR'
                or deal.trigger_knock_send == 'ERROR' %}
-            <span style="color:#dc2626; font-size:12px; font-weight:600;">트리거 오류</span>
+            <span style="color:#DC2626; font-size:12px; font-weight:600;">트리거 오류</span>
           {% elif deal.trigger_reply_send == 'PENDING' %}
-            <span style="color:#d97706; font-size:12px; font-weight:600;">회신 발송 대기중</span>
+            <span style="color:#6B7280; font-size:12px; font-weight:500;">회신 발송 대기중</span>
           {% elif deal.trigger_quote_gen == 'PENDING' %}
-            <span style="color:#d97706; font-size:12px; font-weight:600;">견적서 생성 대기중</span>
+            <span style="color:#6B7280; font-size:12px; font-weight:500;">견적서 생성 대기중</span>
           {% elif deal.trigger_contract_gen == 'PENDING' %}
-            <span style="color:#d97706; font-size:12px; font-weight:600;">계약서 생성 대기중</span>
+            <span style="color:#6B7280; font-size:12px; font-weight:500;">계약서 생성 대기중</span>
           {% elif deal.trigger_contract_send == 'PENDING' %}
-            <span style="color:#d97706; font-size:12px; font-weight:600;">전자계약 발송 대기중</span>
+            <span style="color:#6B7280; font-size:12px; font-weight:500;">전자계약 발송 대기중</span>
           {% elif deal.trigger_knock_send == 'PENDING' %}
-            <span style="color:#d97706; font-size:12px; font-weight:600;">노크 메일 대기중</span>
+            <span style="color:#6B7280; font-size:12px; font-weight:500;">노크 메일 대기중</span>
           {% endif %}
         </td>
         <td style="color:#6b7280; font-size:12px;">{{ deal.created_at[:10] if deal.created_at else '—' }}</td>
