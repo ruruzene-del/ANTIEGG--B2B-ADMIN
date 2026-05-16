@@ -594,6 +594,55 @@
     .trigger-status--processing { color: #D97706; }
     .trigger-status--idle    { color: var(--text-disabled); }
 
+    /* Toast notifications */
+    .toast-container {
+      position: fixed; bottom: var(--sp-6); right: var(--sp-6);
+      z-index: 1000;
+      display: flex; flex-direction: column; gap: var(--sp-2);
+      pointer-events: none;
+    }
+    .toast {
+      display: inline-flex; align-items: center; gap: var(--sp-3);
+      max-width: 400px;
+      padding: var(--sp-3) var(--sp-4);
+      background: #111; color: #fff;
+      border-radius: var(--r-md);
+      font-size: 13px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+      pointer-events: auto;
+      animation: toast-in 200ms var(--ease-out);
+    }
+    .toast.leaving { animation: toast-out 150ms var(--ease-in) forwards; }
+    .toast--success { background: #111; }
+    .toast--error   { background: var(--critical); }
+    .toast--info    { background: #1F2937; }
+    .toast > i { flex-shrink: 0; }
+    .toast .msg { flex: 1; line-height: 1.4; }
+    .toast button {
+      background: rgba(255, 255, 255, 0.12);
+      color: #fff; border: none;
+      padding: 4px 10px;
+      border-radius: var(--r-sm);
+      font-family: var(--font);
+      font-size: 12px; font-weight: 600;
+      cursor: pointer;
+      transition: background var(--d-micro);
+    }
+    .toast button:hover { background: rgba(255, 255, 255, 0.2); }
+    .toast .close-x {
+      background: transparent !important;
+      padding: 0 var(--sp-1) !important;
+      font-size: 18px; line-height: 1;
+    }
+    .toast .close-x:hover { background: transparent !important; opacity: 0.7; }
+    @keyframes toast-in {
+      from { transform: translateX(40px); opacity: 0; }
+      to   { transform: translateX(0); opacity: 1; }
+    }
+    @keyframes toast-out {
+      to { opacity: 0; transform: translateX(20px); }
+    }
+
     /* Quote summary box */
     .quote-box {
       background: #FAFAFA;
@@ -648,6 +697,9 @@
   <aside id="panel" class="panel" role="dialog" aria-modal="true" aria-hidden="true">
     <div id="panel-content"></div>
   </aside>
+
+  <!-- Toast container -->
+  <div id="toast-container" class="toast-container" aria-live="polite"></div>
 
   <!-- HTMX -->
   <script src="https://unpkg.com/htmx.org@2.0.4"></script>
@@ -705,6 +757,69 @@
         const menu = dropdown.querySelector('.stage-menu');
         if (menu) menu.setAttribute('hidden', '');
       }
+    });
+
+    // ── Toast ─────────────────────────────────────────────────────────
+    function showToast(message, type, undo) {
+      const container = document.getElementById('toast-container');
+      // 동시 표시 1개만 (Step 5c)
+      container.innerHTML = '';
+
+      const t = document.createElement('div');
+      t.className = 'toast toast--' + (type || 'info');
+
+      const iconName = type === 'error' ? 'x-circle'
+                     : type === 'success' ? 'check'
+                     : 'info';
+
+      let undoBtnHtml = '';
+      if (undo && undo.deal_id && undo.stage) {
+        undoBtnHtml = '<button type="button" data-undo-deal="' + undo.deal_id +
+                      '" data-undo-stage="' + undo.stage + '">되돌리기</button>';
+      }
+
+      t.innerHTML =
+        '<i data-lucide="' + iconName + '" style="width:14px;height:14px;"></i>' +
+        '<span class="msg">' + message + '</span>' +
+        undoBtnHtml +
+        '<button type="button" class="close-x" aria-label="닫기">×</button>';
+
+      container.appendChild(t);
+      refreshIcons();
+
+      // 닫기 핸들러
+      t.querySelector('.close-x').addEventListener('click', () => dismissToast(t));
+
+      // Undo 핸들러
+      const undoBtn = t.querySelector('[data-undo-deal]');
+      if (undoBtn) {
+        undoBtn.addEventListener('click', () => {
+          const dealId = undoBtn.getAttribute('data-undo-deal');
+          const stage = undoBtn.getAttribute('data-undo-stage');
+          if (window.htmx) {
+            htmx.ajax('POST', '/deals/' + dealId + '/stage', {
+              target: '#panel-content',
+              swap:   'innerHTML',
+              values: { stage: stage },
+            });
+          }
+          dismissToast(t);
+        });
+      }
+
+      // 자동 사라짐: success 3초, error 5초, undo 포함 8초
+      const ttl = undo ? 8000 : (type === 'error' ? 5000 : 3000);
+      setTimeout(() => dismissToast(t), ttl);
+    }
+    function dismissToast(el) {
+      if (!el || !el.parentNode) return;
+      el.classList.add('leaving');
+      setTimeout(() => el.remove(), 200);
+    }
+    // HTMX HX-Trigger 이벤트 수신
+    document.body.addEventListener('toast', (e) => {
+      const d = e.detail || {};
+      showToast(d.message || '', d.type || 'info', d.undo);
     });
   </script>
 

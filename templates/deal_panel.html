@@ -151,7 +151,7 @@
     <div class="section-head">회신 초안</div>
     <form method="post" action="/deals/{{ deal.deal_id }}/reply-draft"
           hx-post="/deals/{{ deal.deal_id }}/reply-draft"
-          hx-target="#panel-content" hx-swap="innerHTML">
+          hx-swap="none">
       <textarea name="reply_draft"
                 placeholder="(비어있음 — 트리거 실행 후 자동 입력됨)"
                 style="min-height: 140px;">{{ deal.reply_draft or '' }}</textarea>
@@ -167,7 +167,7 @@
     <div class="collapsible-body">
       <form method="post" action="/deals/{{ deal.deal_id }}/conditions"
             hx-post="/deals/{{ deal.deal_id }}/conditions"
-            hx-target="#panel-content" hx-swap="innerHTML">
+            hx-swap="none">
         <div class="flex-col gap-3">
           <div>
             <label>서비스명</label>

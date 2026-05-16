@@ -1,4 +1,5 @@
 import os
+import json
 import logging
 from app.services import scheduler as sched
 from contextlib import asynccontextmanager
@@ -355,8 +356,8 @@ async def deal_panel(request: Request, deal_id: str):
     ctx['request'] = request
     return templates.TemplateResponse('deal_panel.html', ctx)
 
-def _hx_or_redirect(request: Request, deal_id: str):
-    """HTMX 요청이면 갱신된 패널 HTML, 아니면 레거시 디테일로 리다이렉트."""
+def _hx_or_redirect(request: Request, deal_id: str, toast: dict = None):
+    """HTMX 요청이면 갱신된 패널 HTML + HX-Trigger 토스트, 아니면 레거시 redirect."""
     if request.headers.get('HX-Request'):
         deal = db.get_deal(deal_id)
         if not deal:
@@ -366,8 +367,19 @@ def _hx_or_redirect(request: Request, deal_id: str):
             )
         ctx = _panel_context(deal)
         ctx['request'] = request
-        return templates.TemplateResponse('deal_panel.html', ctx)
+        response = templates.TemplateResponse('deal_panel.html', ctx)
+        if toast:
+            response.headers['HX-Trigger'] = json.dumps({'toast': toast})
+        return response
     return RedirectResponse(f'/deals/{deal_id}', status_code=303)
+
+def _hx_toast_only(request: Request, toast: dict):
+    """패널 재렌더 없이 토스트만 (reply-draft, conditions 저장 등)."""
+    if request.headers.get('HX-Request'):
+        response = HTMLResponse('', status_code=200)
+        response.headers['HX-Trigger'] = json.dumps({'toast': toast})
+        return response
+    return None
 
 @app.get('/deals/{deal_id}', response_class=HTMLResponse)
 async def deal_detail(request: Request, deal_id: str):
@@ -383,15 +395,29 @@ async def deal_detail(request: Request, deal_id: str):
 
 @app.post('/deals/{deal_id}/stage')
 async def update_stage(request: Request, deal_id: str, stage: str = Form(...)):
+    old = db.get_deal(deal_id)
+    old_stage = (old or {}).get('stage') or 'REVIEWING'
+    if old_stage == stage:
+        return _hx_or_redirect(request, deal_id)
     db.update_deal(deal_id, {'stage': stage})
-    return _hx_or_redirect(request, deal_id)
+    db.log_activity(deal_id, 'stage_changed', {'from': old_stage, 'to': stage})
+    return _hx_or_redirect(request, deal_id, toast={
+        'message': f'Stage {old_stage} → {stage}',
+        'type':    'info',
+        'undo':    {'deal_id': deal_id, 'stage': old_stage},
+    })
 
 # ── Reply Draft 수정 저장 ─────────────────────────────────────────────────────
 
 @app.post('/deals/{deal_id}/reply-draft')
-async def update_reply_draft(request: Request, deal_id: str, reply_draft: str = Form(...)):
+async def update_reply_draft(request: Request, deal_id: str, reply_draft: str = Form('')):
     db.update_deal(deal_id, {'reply_draft': reply_draft})
-    return _hx_or_redirect(request, deal_id)
+    toast_resp = _hx_toast_only(request, {
+        'message': '회신 초안 저장됨', 'type': 'success',
+    })
+    if toast_resp is not None:
+        return toast_resp
+    return RedirectResponse(f'/deals/{deal_id}', status_code=303)
 
 # ── 딜 컨디션 저장 ────────────────────────────────────────────────────────────
 
@@ -426,7 +452,12 @@ async def update_conditions(
         'cond_contract_start': cond_contract_start,
         'cond_contract_end': cond_contract_end,
     })
-    return _hx_or_redirect(request, deal_id)
+    toast_resp = _hx_toast_only(request, {
+        'message': '딜 조건 저장됨', 'type': 'success',
+    })
+    if toast_resp is not None:
+        return toast_resp
+    return RedirectResponse(f'/deals/{deal_id}', status_code=303)
 
 # ── 트리거 버튼 ───────────────────────────────────────────────────────────────
 
@@ -438,7 +469,13 @@ async def set_trigger(request: Request, deal_id: str, trigger_name: str):
     deal = db.get_deal(deal_id)
     if not deal:
         return HTMLResponse('딜 없음', status_code=404)
+    old_status = deal.get(col) or 'IDLE'
     db.update_deal(deal_id, {col: 'PENDING'})
+    db.log_activity(deal_id, 'trigger_fired', {
+        'trigger': col.replace('trigger_', ''),
+        'from':    old_status,
+        'to':      'PENDING',
+    })
     return _hx_or_redirect(request, deal_id)
 
 # ── 모두싸인 Webhook (Phase 4에서 구현) ──────────────────────────────────────
@@ -467,6 +504,7 @@ async def sign_submit(request: Request, token: str, signer_name: str = Form(...)
         'signed_ip': client_ip,
         'stage': 'SIGNED',
     })
+    db.log_activity(deal['deal_id'], 'signed', {'signer': signer_name, 'ip': client_ip})
     slack.notify_contract_signed(deal['deal_id'], deal['company'])
 
     return templates.TemplateResponse('sign.html', {
