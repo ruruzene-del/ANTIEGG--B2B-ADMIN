@@ -104,7 +104,11 @@
       <span class="phase-count">({{ phases[phase]|length }})</span>
     </div>
     {% for item in phases[phase] %}
-    <a href="/deals/{{ item.deal.deal_id }}" class="pipe-card" data-deal-id="{{ item.deal.deal_id }}">
+    <a href="/deals/{{ item.deal.deal_id }}" class="pipe-card"
+       data-deal-id="{{ item.deal.deal_id }}"
+       hx-get="/deals/{{ item.deal.deal_id }}/panel"
+       hx-target="#panel-content"
+       hx-swap="innerHTML">
       <div class="pipe-card-company">{{ item.deal.company or '(미상)' }}</div>
       <div class="pipe-card-meta">
         <span class="pipe-card-sub">{{ item.sub_stage }}</span>
@@ -123,7 +127,11 @@
       <span class="phase-count">({{ closed_count }})</span>
     </div>
     {% for item in closed_lost %}
-    <a href="/deals/{{ item.deal.deal_id }}" class="pipe-card" data-deal-id="{{ item.deal.deal_id }}">
+    <a href="/deals/{{ item.deal.deal_id }}" class="pipe-card"
+       data-deal-id="{{ item.deal.deal_id }}"
+       hx-get="/deals/{{ item.deal.deal_id }}/panel"
+       hx-target="#panel-content"
+       hx-swap="innerHTML">
       <div class="pipe-card-company">{{ item.deal.company or '(미상)' }}</div>
       <div class="pipe-card-meta">
         <span class="pipe-card-sub">{{ item.sub_stage }}</span>

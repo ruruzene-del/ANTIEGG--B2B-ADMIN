@@ -1,0 +1,301 @@
+{# Slide-over Deal Panel — full render (I-4b). 인터랙션은 I-4c. #}
+
+{% macro render_trigger_button(t, deal_id) %}
+  {% set s = t.status %}
+  {% if s == 'PROCESSING' %}
+    <div style="width: 100%;">
+      <button class="trigger-btn" disabled type="button">
+        <i data-lucide="loader" style="width:16px; height:16px;"></i>
+        {{ t.label }} → AI 작업 중
+      </button>
+      <div class="progress-bar"><div class="progress-shimmer"></div></div>
+      <div class="trigger-processing-hint">약 3~5분 소요됩니다</div>
+    </div>
+  {% elif s == 'ERROR' %}
+    <div style="width: 100%;">
+      <form method="post" action="/deals/{{ deal_id }}/trigger/{{ t.key|replace('_','-') }}"
+            hx-post="/deals/{{ deal_id }}/trigger/{{ t.key|replace('_','-') }}"
+            hx-target="#panel-content" hx-swap="innerHTML"
+            style="margin: 0;">
+        <button type="submit" class="trigger-btn trigger-btn--error">
+          <i data-lucide="alert-circle"></i>
+          {{ t.label }} → 재시도
+        </button>
+      </form>
+      <div class="trigger-error-msg">오류 발생 — 클릭하여 재시도</div>
+    </div>
+  {% elif s == 'DRAFT' %}
+    <button class="trigger-btn trigger-btn--draft" disabled type="button">
+      <i data-lucide="check"></i>
+      {{ t.label }} (저장됨)
+    </button>
+  {% elif s == 'DONE' %}
+    <button class="trigger-btn trigger-btn--done" disabled type="button">
+      <i data-lucide="check"></i>
+      {{ t.label }} 완료
+    </button>
+  {% elif s == 'PENDING' %}
+    <button class="trigger-btn" disabled type="button">
+      <i data-lucide="clock" style="width:16px; height:16px;"></i>
+      {{ t.label }} 곧 시작…
+    </button>
+  {% else %}
+    {# IDLE #}
+    <form method="post" action="/deals/{{ deal_id }}/trigger/{{ t.key|replace('_','-') }}"
+          hx-post="/deals/{{ deal_id }}/trigger/{{ t.key|replace('_','-') }}"
+          hx-target="#panel-content" hx-swap="innerHTML"
+          style="width: 100%; margin: 0;">
+      <button type="submit" class="trigger-btn {% if t.is_primary %}trigger-btn--primary{% endif %}">
+        <i data-lucide="{{ t.icon }}"></i>
+        {{ t.label }}
+      </button>
+    </form>
+  {% endif %}
+{% endmacro %}
+
+<div class="panel-header">
+  <button type="button" onclick="closePanel()" aria-label="닫기">
+    <i data-lucide="arrow-left" style="width:18px; height:18px;"></i>
+  </button>
+  <button type="button" aria-label="더보기">
+    <i data-lucide="more-horizontal" style="width:18px; height:18px;"></i>
+  </button>
+</div>
+
+<div class="panel-body">
+
+  {# ── Header: 회사명, 메타, Stage ── #}
+  <h2 class="h-deal">{{ deal.company or '(회사명 미상)' }}</h2>
+  <div class="text-meta" style="margin-top: var(--sp-1);">
+    {{ deal.deal_id }}
+    {% if deal.contact_name %} · {{ deal.contact_name }}{% if deal.contact_title %} {{ deal.contact_title }}{% endif %}{% endif %}
+    {% if deal.created_at %} · {{ deal.created_at[:10] }} 접수{% endif %}
+  </div>
+
+  <div style="margin-top: var(--sp-3);">
+    {% set is_closed = deal.stage in ('CLOSED_WON', 'CLOSED_LOST') %}
+    <div class="stage-dropdown" id="stage-dropdown">
+      <button class="stage-trigger {% if is_closed %}closed{% endif %}"
+              type="button" onclick="toggleStageDropdown(event)">
+        {{ deal.stage or 'REVIEWING' }}
+        <i data-lucide="chevron-down" style="width:12px; height:12px;"></i>
+      </button>
+      <div class="stage-menu" hidden role="menu">
+        {% for s in stage_options %}{% if s != 'INQUIRY' %}
+        <button type="button"
+                class="stage-menu-item {% if s == deal.stage %}current{% endif %}"
+                hx-post="/deals/{{ deal.deal_id }}/stage"
+                hx-vals='{"stage": "{{ s }}"}'
+                hx-target="#panel-content"
+                hx-swap="innerHTML"
+                role="menuitem">
+          <span>{{ s }}</span>
+          {% if s == deal.stage %}<i data-lucide="check" class="check" style="width:12px; height:12px;"></i>{% endif %}
+        </button>
+        {% endif %}{% endfor %}
+      </div>
+    </div>
+  </div>
+
+  {# ── 문의 요약 ── #}
+  <div style="margin-top: var(--sp-5);">
+    <div class="section-head">문의 요약</div>
+    <div class="quote-box">{{ deal.summary or '— 요약 없음 —' }}</div>
+  </div>
+
+  {# ── 같은 회사 이력 (있을 때만) ── #}
+  {% if history %}
+  <div style="margin-top: var(--sp-5);">
+    <div class="section-head">
+      같은 회사 이력 <span style="color: var(--text-muted); font-weight: 400;">({{ history|length }})</span>
+    </div>
+    <div class="history-list">
+      {% for h in history %}
+      <div class="history-row">
+        <span class="id">{{ h.deal_id }}</span>
+        <span><span class="badge {% if h.stage in ('CLOSED_WON','CLOSED_LOST') %}badge-closed{% endif %}">{{ h.stage }}</span></span>
+        <span class="text-meta">{{ h.created_at[:10] if h.created_at else '—' }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  <div class="panel-divider"></div>
+
+  {# ── 액션 — 트리거 1+4 ── #}
+  <div class="section-head">액션</div>
+
+  <div class="trigger-row">
+    {{ render_trigger_button(triggers.reply_send, deal.deal_id) }}
+  </div>
+
+  <div class="trigger-row-grid">
+    {{ render_trigger_button(triggers.quote_gen,     deal.deal_id) }}
+    {{ render_trigger_button(triggers.contract_gen,  deal.deal_id) }}
+    {{ render_trigger_button(triggers.contract_send, deal.deal_id) }}
+    {{ render_trigger_button(triggers.knock_send,    deal.deal_id) }}
+  </div>
+
+  {# ── Gmail Draft 알림 ── #}
+  {% if has_draft %}
+  <div class="draft-alert">
+    <span class="dot"></span>
+    <div>Gmail 임시보관에 초안 저장됨. 검토 후 Gmail에서 직접 발송해주세요.</div>
+    <a href="https://mail.google.com/mail/u/0/#drafts" target="_blank">Gmail 열기 →</a>
+  </div>
+  {% endif %}
+
+  {# ── 회신 초안 ── #}
+  <div style="margin-top: var(--sp-5);">
+    <div class="section-head">회신 초안</div>
+    <form method="post" action="/deals/{{ deal.deal_id }}/reply-draft"
+          hx-post="/deals/{{ deal.deal_id }}/reply-draft"
+          hx-target="#panel-content" hx-swap="innerHTML">
+      <textarea name="reply_draft"
+                placeholder="(비어있음 — 트리거 실행 후 자동 입력됨)"
+                style="min-height: 140px;">{{ deal.reply_draft or '' }}</textarea>
+      <div style="margin-top: var(--sp-2);">
+        <button type="submit" class="btn btn-secondary">저장</button>
+      </div>
+    </form>
+  </div>
+
+  {# ── 딜 조건 (접힘) ── #}
+  <details class="collapsible" style="margin-top: var(--sp-4);">
+    <summary>딜 조건</summary>
+    <div class="collapsible-body">
+      <form method="post" action="/deals/{{ deal.deal_id }}/conditions"
+            hx-post="/deals/{{ deal.deal_id }}/conditions"
+            hx-target="#panel-content" hx-swap="innerHTML">
+        <div class="flex-col gap-3">
+          <div>
+            <label>서비스명</label>
+            <input type="text" name="cond_service_name" value="{{ deal.cond_service_name or '' }}">
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3);">
+            <div>
+              <label>단가</label>
+              <input type="text" name="cond_unit_price" value="{{ deal.cond_unit_price or '' }}">
+            </div>
+            <div>
+              <label>수량</label>
+              <input type="text" name="cond_quantity" value="{{ deal.cond_quantity or '' }}">
+            </div>
+          </div>
+          <div>
+            <label>결제 조건</label>
+            <input type="text" name="cond_payment_terms" value="{{ deal.cond_payment_terms or '' }}">
+          </div>
+          <div>
+            <label>납품 범위</label>
+            <input type="text" name="cond_delivery_scope" value="{{ deal.cond_delivery_scope or '' }}">
+          </div>
+          <div>
+            <label>서비스 설명</label>
+            <textarea name="cond_service_desc" style="min-height: 60px;">{{ deal.cond_service_desc or '' }}</textarea>
+          </div>
+          <div>
+            <label>특이사항</label>
+            <textarea name="cond_notes" style="min-height: 60px;">{{ deal.cond_notes or '' }}</textarea>
+          </div>
+        </div>
+
+        <div style="margin: var(--sp-4) 0 var(--sp-3); padding-top: var(--sp-3); border-top: 1px solid #F3F4F6;">
+          <div class="micro" style="margin-bottom: var(--sp-2); text-transform: uppercase; letter-spacing: .04em;">계약서 정보</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3);">
+            <div>
+              <label>고객사 대표자</label>
+              <input type="text" name="cond_company_ceo" value="{{ deal.cond_company_ceo or '' }}">
+            </div>
+            <div>
+              <label>고객사 사업자번호</label>
+              <input type="text" name="cond_company_biz_no" value="{{ deal.cond_company_biz_no or '' }}">
+            </div>
+            <div>
+              <label>계약 시작일</label>
+              <input type="text" name="cond_contract_start" value="{{ deal.cond_contract_start or '' }}">
+            </div>
+            <div>
+              <label>계약 종료일</label>
+              <input type="text" name="cond_contract_end" value="{{ deal.cond_contract_end or '' }}">
+            </div>
+          </div>
+          <div style="margin-top: var(--sp-3);">
+            <label>고객사 주소</label>
+            <input type="text" name="cond_company_addr" value="{{ deal.cond_company_addr or '' }}">
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-secondary">저장</button>
+      </form>
+    </div>
+  </details>
+
+  {# ── 문서 미리보기 (생성된 경우만) ── #}
+  {% if show_docs %}
+  <details class="collapsible" open>
+    <summary>문서 미리보기</summary>
+    <div class="collapsible-body">
+      <div style="display: flex; gap: var(--sp-2); flex-wrap: wrap;">
+        {% if deal.trigger_quote_gen == 'DONE' %}
+        <a href="/preview/quote/{{ deal.deal_id }}" target="_blank" class="btn btn-secondary">
+          <i data-lucide="file-text" style="width:14px; height:14px;"></i>
+          견적서 미리보기 · PDF
+        </a>
+        {% endif %}
+        {% if deal.trigger_contract_gen == 'DONE' %}
+        <a href="/preview/contract/{{ deal.deal_id }}" target="_blank" class="btn btn-secondary">
+          <i data-lucide="clipboard" style="width:14px; height:14px;"></i>
+          계약서 미리보기 · PDF
+        </a>
+        {% endif %}
+      </div>
+      <div class="text-meta" style="margin-top: var(--sp-2);">미리보기 페이지에서 ⌘P → PDF로 저장</div>
+    </div>
+  </details>
+  {% endif %}
+
+  <div class="panel-divider"></div>
+
+  {# ── 메타 영역 (기본 접힘) ── #}
+  <details class="collapsible">
+    <summary>활동 <span class="count">({{ activities|length }})</span></summary>
+    <div class="collapsible-body">
+      {% if activities %}
+        {% for a in activities %}
+        <div class="activity-row">
+          <span class="time">{{ a.created_at | relative_time }}</span>
+          <span>{{ a | format_activity }}</span>
+        </div>
+        {% endfor %}
+      {% else %}
+        <div class="text-meta" style="padding: var(--sp-2) 0;">활동 없음 (Activity 로깅은 I-4d에서)</div>
+      {% endif %}
+    </div>
+  </details>
+
+  <details class="collapsible">
+    <summary>연락처</summary>
+    <div class="collapsible-body">
+      <div class="kv-row"><span class="k">회사</span><span class="v">{{ deal.company or '—' }}</span></div>
+      <div class="kv-row"><span class="k">담당자</span><span class="v">{{ deal.contact_name or '—' }}</span></div>
+      <div class="kv-row"><span class="k">직함</span><span class="v">{{ deal.contact_title or '—' }}</span></div>
+      <div class="kv-row"><span class="k">이메일</span><span class="v">{{ deal.email or '—' }}</span></div>
+      <div class="kv-row"><span class="k">전화</span><span class="v">{{ deal.contact_phone or '—' }}</span></div>
+    </div>
+  </details>
+
+  <details class="collapsible" {% if has_error %}open{% endif %}>
+    <summary>트리거 상태</summary>
+    <div class="collapsible-body">
+      {% for key, t in triggers.items() %}
+      <div class="kv-row">
+        <span class="k">{{ t.label }}</span>
+        <span class="trigger-status trigger-status--{{ t.status|lower }}">{{ t.status }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </details>
+
+</div>

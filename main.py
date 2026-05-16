@@ -75,6 +75,30 @@ def _relative_time(value):
 
 templates.env.filters['relative_time'] = _relative_time
 
+def _format_activity(activity):
+    """activity dict → 사람이 읽는 한 줄 문장."""
+    t = activity.get('type', '')
+    p = activity.get('payload') or {}
+    if t == 'stage_changed':
+        return f"Stage {p.get('from','?')} → {p.get('to','?')}"
+    if t == 'trigger_fired':
+        labels = {
+            'reply_send':    '회신',
+            'quote_gen':     '견적서',
+            'contract_gen':  '계약서',
+            'contract_send': '전자계약',
+            'knock_send':    '노크',
+        }
+        label = labels.get(p.get('trigger', ''), p.get('trigger', '?'))
+        return f"{label} 트리거 {p.get('from','?')} → {p.get('to','?')}"
+    if t == 'signed':
+        return "전자서명 완료"
+    if t == 'note_added':
+        return f"노트: {p.get('text', '')}"
+    return t
+
+templates.env.filters['format_activity'] = _format_activity
+
 # ── v2: 인박스 분류 로직 ──────────────────────────────────────────────
 def _classify_inbox_now(deal: dict) -> dict:
     """현재 손대야 할 가장 시급한 이슈로 분류. (dot 색 + 라벨)"""
@@ -132,6 +156,63 @@ STAGE_ABBR = {
     'CLOSED_WON':  'CLOSED_W',
     'CLOSED_LOST': 'CLOSED_L',
 }
+
+# ── v2: Deal 패널 컨텍스트 ────────────────────────────────────────────
+TRIGGER_META = {
+    'reply_send':    ('mail',       '회신 초안 → Gmail'),
+    'quote_gen':     ('file-text',  '견적서'),
+    'contract_gen':  ('clipboard',  '계약서'),
+    'contract_send': ('pen-line',   '전자계약'),
+    'knock_send':    ('send',       '노크'),
+}
+TRIGGER_KEYS = ('reply_send', 'quote_gen', 'contract_gen', 'contract_send', 'knock_send')
+
+STAGE_TO_PRIMARY_TRIGGER = {
+    'REVIEWING':   'reply_send',
+    'REPLIED':     'quote_gen',
+    'NEGOTIATING': 'quote_gen',
+    'QUOTED':      'contract_gen',
+    'CONTRACTING': 'contract_send',
+    'KNOCK_REPLY': 'knock_send',
+    'KNOCK_QUOTE': 'knock_send',
+}
+
+def _trigger_btn_data(deal: dict, key: str, primary_key: str) -> dict:
+    icon, base = TRIGGER_META[key]
+    status = (deal.get(f'trigger_{key}') or 'IDLE')
+    return {
+        'key':        key,
+        'status':     status,
+        'icon':       icon,
+        'label':      base,
+        'is_primary': (key == primary_key),
+    }
+
+def _panel_context(deal: dict) -> dict:
+    stage = deal.get('stage') or 'REVIEWING'
+    primary_key = STAGE_TO_PRIMARY_TRIGGER.get(stage)
+
+    triggers = {k: _trigger_btn_data(deal, k, primary_key) for k in TRIGGER_KEYS}
+
+    company = deal.get('company') or '(회사명 미상)'
+    history = db.get_deals_by_company(company, exclude_deal_id=deal['deal_id'])
+    activities = db.get_activities(deal['deal_id'])
+
+    has_draft = any(triggers[k]['status'] == 'DRAFT'
+                    for k in ('reply_send', 'contract_send', 'knock_send'))
+    has_error = any(t['status'] == 'ERROR' for t in triggers.values())
+    show_docs = deal.get('trigger_quote_gen') == 'DONE' or deal.get('trigger_contract_gen') == 'DONE'
+
+    return {
+        'deal':         deal,
+        'triggers':     triggers,
+        'history':      history,
+        'activities':   activities,
+        'has_draft':    has_draft,
+        'has_error':    has_error,
+        'show_docs':    show_docs,
+        'stage_options': STAGE_OPTIONS,
+    }
 
 def _pipeline_marker(deal: dict):
     """파이프라인 카드 dot. None이면 마커 없음."""
@@ -261,6 +342,33 @@ async def dashboard_legacy(request: Request, stage: str = None):
 
 # ── 딜 상세 ──────────────────────────────────────────────────────────────────
 
+@app.get('/deals/{deal_id}/panel', response_class=HTMLResponse)
+async def deal_panel(request: Request, deal_id: str):
+    """슬라이드 패널 HTML 청크 (HTMX swap 대상)."""
+    deal = db.get_deal(deal_id)
+    if not deal:
+        return HTMLResponse(
+            '<div class="panel-body"><div class="empty">딜을 찾을 수 없습니다</div></div>',
+            status_code=404,
+        )
+    ctx = _panel_context(deal)
+    ctx['request'] = request
+    return templates.TemplateResponse('deal_panel.html', ctx)
+
+def _hx_or_redirect(request: Request, deal_id: str):
+    """HTMX 요청이면 갱신된 패널 HTML, 아니면 레거시 디테일로 리다이렉트."""
+    if request.headers.get('HX-Request'):
+        deal = db.get_deal(deal_id)
+        if not deal:
+            return HTMLResponse(
+                '<div class="panel-body"><div class="empty">딜을 찾을 수 없습니다</div></div>',
+                status_code=404,
+            )
+        ctx = _panel_context(deal)
+        ctx['request'] = request
+        return templates.TemplateResponse('deal_panel.html', ctx)
+    return RedirectResponse(f'/deals/{deal_id}', status_code=303)
+
 @app.get('/deals/{deal_id}', response_class=HTMLResponse)
 async def deal_detail(request: Request, deal_id: str):
     deal = db.get_deal(deal_id)
@@ -274,21 +382,22 @@ async def deal_detail(request: Request, deal_id: str):
 # ── Stage 변경 ────────────────────────────────────────────────────────────────
 
 @app.post('/deals/{deal_id}/stage')
-async def update_stage(deal_id: str, stage: str = Form(...)):
+async def update_stage(request: Request, deal_id: str, stage: str = Form(...)):
     db.update_deal(deal_id, {'stage': stage})
-    return RedirectResponse(f'/deals/{deal_id}', status_code=303)
+    return _hx_or_redirect(request, deal_id)
 
 # ── Reply Draft 수정 저장 ─────────────────────────────────────────────────────
 
 @app.post('/deals/{deal_id}/reply-draft')
-async def update_reply_draft(deal_id: str, reply_draft: str = Form(...)):
+async def update_reply_draft(request: Request, deal_id: str, reply_draft: str = Form(...)):
     db.update_deal(deal_id, {'reply_draft': reply_draft})
-    return RedirectResponse(f'/deals/{deal_id}', status_code=303)
+    return _hx_or_redirect(request, deal_id)
 
 # ── 딜 컨디션 저장 ────────────────────────────────────────────────────────────
 
 @app.post('/deals/{deal_id}/conditions')
 async def update_conditions(
+    request: Request,
     deal_id: str,
     cond_service_name: str = Form(''),
     cond_service_desc: str = Form(''),
@@ -317,12 +426,12 @@ async def update_conditions(
         'cond_contract_start': cond_contract_start,
         'cond_contract_end': cond_contract_end,
     })
-    return RedirectResponse(f'/deals/{deal_id}', status_code=303)
+    return _hx_or_redirect(request, deal_id)
 
 # ── 트리거 버튼 ───────────────────────────────────────────────────────────────
 
 @app.post('/deals/{deal_id}/trigger/{trigger_name}')
-async def set_trigger(deal_id: str, trigger_name: str):
+async def set_trigger(request: Request, deal_id: str, trigger_name: str):
     col = TRIGGER_COL_MAP.get(trigger_name)
     if not col:
         return HTMLResponse('Invalid trigger', status_code=400)
@@ -330,7 +439,7 @@ async def set_trigger(deal_id: str, trigger_name: str):
     if not deal:
         return HTMLResponse('딜 없음', status_code=404)
     db.update_deal(deal_id, {col: 'PENDING'})
-    return RedirectResponse(f'/deals/{deal_id}', status_code=303)
+    return _hx_or_redirect(request, deal_id)
 
 # ── 모두싸인 Webhook (Phase 4에서 구현) ──────────────────────────────────────
 

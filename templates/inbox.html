@@ -70,7 +70,11 @@
   </div>
   <div class="inbox-list">
     {% for item in now_items %}
-    <a href="/deals/{{ item.deal.deal_id }}" class="inbox-item" data-deal-id="{{ item.deal.deal_id }}">
+    <a href="/deals/{{ item.deal.deal_id }}" class="inbox-item"
+       data-deal-id="{{ item.deal.deal_id }}"
+       hx-get="/deals/{{ item.deal.deal_id }}/panel"
+       hx-target="#panel-content"
+       hx-swap="innerHTML">
       <span class="dot dot-{{ item.classify.dot }} inbox-item-dot"></span>
       <div class="inbox-item-body">
         <div class="inbox-item-head">
@@ -94,7 +98,11 @@
   </div>
   <div class="inbox-list">
     {% for item in upcoming_items %}
-    <a href="/deals/{{ item.deal.deal_id }}" class="inbox-item" data-deal-id="{{ item.deal.deal_id }}">
+    <a href="/deals/{{ item.deal.deal_id }}" class="inbox-item"
+       data-deal-id="{{ item.deal.deal_id }}"
+       hx-get="/deals/{{ item.deal.deal_id }}/panel"
+       hx-target="#panel-content"
+       hx-swap="innerHTML">
       <span class="dot dot-{{ item.classify.dot }} inbox-item-dot"></span>
       <div class="inbox-item-body">
         <div class="inbox-item-head">
