@@ -57,7 +57,29 @@ def _base_ctx(request: Request) -> dict:
     return {'request': request, 'stage_counts': db.get_stage_counts()}
 
 @app.get('/', response_class=HTMLResponse)
-async def dashboard(request: Request, stage: str = None):
+async def inbox(request: Request):
+    """v2 인박스 stub — I-2에서 풀 구현."""
+    stage_counts = db.get_stage_counts()
+    active_count = sum(stage_counts.get(s, 0) for s in ACTIVE_STAGES)
+    return templates.TemplateResponse('inbox.html', {
+        'request':      request,
+        'today':        datetime.now().strftime('%Y년 %m월 %d일'),
+        'active_count': active_count,
+    })
+
+@app.get('/pipeline', response_class=HTMLResponse)
+async def pipeline_page(request: Request):
+    """v2 파이프라인 stub — I-3에서 풀 구현."""
+    stage_counts = db.get_stage_counts()
+    active_count = sum(stage_counts.get(s, 0) for s in ACTIVE_STAGES)
+    return templates.TemplateResponse('pipeline.html', {
+        'request':      request,
+        'active_count': active_count,
+    })
+
+@app.get('/legacy', response_class=HTMLResponse)
+async def dashboard_legacy(request: Request, stage: str = None):
+    """레거시 대시보드 (참고용 — I-7에서 제거 예정)."""
     stage_counts = db.get_stage_counts()
     all_deals    = db.get_all_deals()
     action_deals = db.get_action_needed()

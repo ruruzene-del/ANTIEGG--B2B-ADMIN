@@ -1,5 +1,6 @@
 import sqlite3
 import os
+import json
 from datetime import datetime
 from contextlib import contextmanager
 
@@ -69,6 +70,16 @@ def init_db():
             year_month   TEXT PRIMARY KEY,
             last_number  INTEGER DEFAULT 0
         );
+
+        CREATE TABLE IF NOT EXISTS activities (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            deal_id      TEXT NOT NULL,
+            type         TEXT NOT NULL,
+            payload      TEXT,
+            created_at   TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_activities_deal_id ON activities(deal_id);
+        CREATE INDEX IF NOT EXISTS idx_activities_created_at ON activities(created_at DESC);
         """)
         for col in [
             'cond_company_addr', 'cond_company_ceo', 'cond_company_biz_no',
@@ -213,3 +224,126 @@ def get_deals_for_closed_lost() -> list:
             AND julianday('now') - julianday(updated_at) >= 7
         """).fetchall()
     return [dict(r) for r in rows]
+
+# ── v2: 인박스 액션 정렬 ────────────────────────────────────────────────
+def get_inbox_now() -> list:
+    """지금 해야 함: REVIEWING(초안 미작성), DRAFT 검토, 노크 발송, 트리거 ERROR"""
+    with get_conn() as conn:
+        rows = conn.execute("""
+            SELECT * FROM deals
+            WHERE (stage = 'REVIEWING' AND (reply_draft IS NULL OR reply_draft = ''))
+               OR stage IN ('KNOCK_REPLY', 'KNOCK_QUOTE')
+               OR trigger_reply_send    IN ('DRAFT', 'ERROR')
+               OR trigger_quote_gen     = 'ERROR'
+               OR trigger_contract_gen  = 'ERROR'
+               OR trigger_contract_send IN ('DRAFT', 'ERROR')
+               OR trigger_knock_send    IN ('DRAFT', 'ERROR')
+            ORDER BY updated_at DESC
+        """).fetchall()
+    return [dict(r) for r in rows]
+
+def get_inbox_upcoming() -> list:
+    """임박(D-1): REPLIED/QUOTED + 6일 무응답 + 노크 미발송"""
+    with get_conn() as conn:
+        rows = conn.execute("""
+            SELECT * FROM deals
+            WHERE stage IN ('REPLIED', 'QUOTED')
+            AND trigger_knock_send = 'IDLE'
+            AND julianday('now') - julianday(updated_at) >= 6
+            AND julianday('now') - julianday(updated_at) < 7
+            ORDER BY updated_at ASC
+        """).fetchall()
+    return [dict(r) for r in rows]
+
+# ── v2: 회사 lookup ─────────────────────────────────────────────────────
+def get_companies_summary() -> list:
+    """회사명 그룹별 집계 (이력 조회용, 객체화 없음)"""
+    with get_conn() as conn:
+        rows = conn.execute("""
+            SELECT
+                COALESCE(NULLIF(company, ''), '(회사명 미상)') AS company,
+                COUNT(*) AS total,
+                SUM(CASE WHEN stage NOT IN ('CLOSED_WON','CLOSED_LOST') THEN 1 ELSE 0 END) AS active,
+                MAX(updated_at) AS last_activity
+            FROM deals
+            GROUP BY COALESCE(NULLIF(company, ''), '(회사명 미상)')
+            ORDER BY last_activity DESC
+        """).fetchall()
+    return [dict(r) for r in rows]
+
+def get_deals_by_company(company: str, exclude_deal_id: str = None) -> list:
+    """특정 회사명의 딜 리스트. exclude_deal_id 주면 그 딜은 제외 (같은 회사 이력 표시용)"""
+    with get_conn() as conn:
+        if exclude_deal_id:
+            rows = conn.execute("""
+                SELECT * FROM deals
+                WHERE COALESCE(NULLIF(company, ''), '(회사명 미상)') = ?
+                  AND deal_id != ?
+                ORDER BY created_at DESC
+            """, (company, exclude_deal_id)).fetchall()
+        else:
+            rows = conn.execute("""
+                SELECT * FROM deals
+                WHERE COALESCE(NULLIF(company, ''), '(회사명 미상)') = ?
+                ORDER BY created_at DESC
+            """, (company,)).fetchall()
+    return [dict(r) for r in rows]
+
+# ── v2: Cmd+K 검색 ──────────────────────────────────────────────────────
+def search_deals(query: str, limit: int = 20) -> dict:
+    """회사/담당자/이메일/deal_id/summary 부분일치 검색. 타입별로 분리해 반환."""
+    q = f'%{query.lower()}%'
+    with get_conn() as conn:
+        # 정확 deal_id 일치 먼저
+        exact = conn.execute(
+            "SELECT * FROM deals WHERE LOWER(deal_id) = LOWER(?) LIMIT 1",
+            (query,)
+        ).fetchone()
+        deal_rows = conn.execute("""
+            SELECT * FROM deals
+            WHERE LOWER(deal_id) LIKE ?
+               OR LOWER(company) LIKE ?
+               OR LOWER(contact_name) LIKE ?
+               OR LOWER(email) LIKE ?
+               OR LOWER(summary) LIKE ?
+            ORDER BY created_at DESC
+            LIMIT ?
+        """, (q, q, q, q, q, limit)).fetchall()
+    return {
+        'exact_deal': dict(exact) if exact else None,
+        'deals': [dict(r) for r in deal_rows],
+    }
+
+# ── v2: Activity 로그 ───────────────────────────────────────────────────
+def log_activity(deal_id: str, type_: str, payload: dict = None):
+    """활동 1건 기록. type ∈ {stage_changed, trigger_fired, signed, note_added}"""
+    with get_conn() as conn:
+        conn.execute("""
+            INSERT INTO activities (deal_id, type, payload, created_at)
+            VALUES (?, ?, ?, ?)
+        """, (
+            deal_id,
+            type_,
+            json.dumps(payload, ensure_ascii=False) if payload else None,
+            datetime.now().isoformat(),
+        ))
+
+def get_activities(deal_id: str, limit: int = 50) -> list:
+    """딜의 활동 로그 (최신순)"""
+    with get_conn() as conn:
+        rows = conn.execute("""
+            SELECT * FROM activities
+            WHERE deal_id = ?
+            ORDER BY created_at DESC
+            LIMIT ?
+        """, (deal_id, limit)).fetchall()
+    out = []
+    for r in rows:
+        d = dict(r)
+        if d.get('payload'):
+            try:
+                d['payload'] = json.loads(d['payload'])
+            except Exception:
+                pass
+        out.append(d)
+    return out

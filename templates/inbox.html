@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}인박스 — ANTIEGG B2B{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+  <h1 class="h-page">인박스</h1>
+  <div class="text-meta mt-2">{{ today }} · 진행중 {{ active_count }}건</div>
+</div>
+
+<div class="card text-center" style="padding: var(--sp-12);">
+  <div class="h-section mb-3" style="color: var(--text-muted);">I-2에서 구현 예정</div>
+  <div class="text-meta">
+    레거시 어드민은 <a href="/legacy">/legacy</a> 에서 확인 가능합니다.
+  </div>
+</div>
+{% endblock %}

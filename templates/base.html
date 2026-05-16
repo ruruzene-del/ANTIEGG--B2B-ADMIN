@@ -4,176 +4,372 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}ANTIEGG B2B{% endblock %}</title>
+
   <style>
+    /* ── Design Tokens ───────────────────────────────────────────────── */
+    :root {
+      /* Neutral */
+      --bg:               #FAFAFA;
+      --surface:          #FFFFFF;
+      --border:           #E8E8E8;
+      --border-strong:    #D4D4D4;
+      --text-primary:     #111111;
+      --text-secondary:   #555555;
+      --text-muted:       #999999;
+      --text-disabled:    #C5C5C5;
+
+      /* Accent */
+      --primary:          #2563EB;
+      --primary-hover:    #1D4ED8;
+      --primary-bg:       #EFF6FF;
+
+      /* Status (시급도 마커) */
+      --critical:         #DC2626;
+      --attention:        #EA580C;
+      --action:           #CA8A04;
+      --upcoming:         #2563EB;
+
+      /* Stage badge */
+      --badge-stage-bg:   #F3F4F6;
+      --badge-stage-tx:   #555555;
+      --badge-closed-bg:  #111111;
+      --badge-closed-tx:  #FFFFFF;
+
+      /* Spacing — 4px grid */
+      --sp-1:  4px;
+      --sp-2:  8px;
+      --sp-3:  12px;
+      --sp-4:  16px;
+      --sp-5:  20px;
+      --sp-6:  24px;
+      --sp-8:  32px;
+      --sp-12: 48px;
+
+      /* Radius */
+      --r-sm: 4px;
+      --r-md: 6px;
+      --r-lg: 8px;
+      --r-xl: 12px;
+
+      /* Type */
+      --font: -apple-system, BlinkMacSystemFont, 'Segoe UI',
+              'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+
+      /* Motion */
+      --d-micro:    100ms;
+      --d-fast:     150ms;
+      --d-base:     200ms;
+      --d-emphasis: 250ms;
+      --ease-out:   cubic-bezier(0.16, 1, 0.3, 1);
+      --ease-in:    cubic-bezier(0.4, 0, 1, 1);
+      --ease-smooth: cubic-bezier(0.4, 0, 0.2, 1);
+
+      /* Layout */
+      --sidebar-w: 220px;
+      --topbar-h:  52px;
+      --focus-ring: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        transition-duration: 0.01ms !important;
+      }
+    }
+
+    /* ── Reset & Base ───────────────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; background: #F8F8F8; color: #111111; display: flex; flex-direction: column; min-height: 100vh; }
-    a { color: #2563EB; text-decoration: none; }
+    html, body { height: 100%; }
+    body {
+      font-family: var(--font);
+      font-size: 14px;
+      line-height: 1.5;
+      color: var(--text-primary);
+      background: var(--bg);
+      -webkit-font-smoothing: antialiased;
+    }
+    a { color: var(--primary); text-decoration: none; }
     a:hover { text-decoration: underline; }
+    button { font-family: inherit; cursor: pointer; }
 
-    /* ── 상단 바 ── */
+    /* ── Topbar ─────────────────────────────────────────────────────── */
     .topbar {
-      position: fixed; top: 0; left: 0; right: 0; height: 52px; z-index: 100;
-      background: #111111; display: flex; align-items: center; padding: 0 20px; gap: 12px;
+      position: fixed; top: 0; left: 0; right: 0;
+      height: var(--topbar-h);
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      display: flex; align-items: center;
+      padding: 0 var(--sp-6);
+      gap: var(--sp-3);
+      z-index: 50;
     }
-    .topbar-brand { font-weight: 700; font-size: 15px; color: #fff; letter-spacing: -.01em; }
-    .topbar-brand span { color: #555555; }
+    .topbar-brand {
+      display: flex; align-items: center; gap: var(--sp-2);
+      font-weight: 700; font-size: 14px; color: var(--text-primary);
+      letter-spacing: -.01em;
+    }
+    .topbar-brand .logo {
+      width: 18px; height: 18px; color: var(--text-primary);
+    }
+    .topbar-spacer { flex: 1; }
+    .topbar-cmdk {
+      display: inline-flex; align-items: center; gap: var(--sp-2);
+      height: 32px; padding: 0 var(--sp-3);
+      border-radius: var(--r-md);
+      background: var(--bg);
+      color: var(--text-muted);
+      font-size: 13px;
+      cursor: pointer;
+      border: none;
+      transition: background var(--d-micro) var(--ease-out);
+    }
+    .topbar-cmdk:hover { background: #F3F4F6; color: var(--text-secondary); }
+    .topbar-cmdk kbd {
+      font-family: var(--font); font-size: 11px;
+      padding: 1px 5px; border-radius: 3px;
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text-muted);
+    }
+    .topbar-user {
+      display: inline-flex; align-items: center; gap: var(--sp-1);
+      color: var(--text-secondary); font-size: 13px;
+      padding: 0 var(--sp-2);
+      cursor: pointer;
+    }
 
-    /* ── 사이드바 ── */
+    /* ── Sidebar ────────────────────────────────────────────────────── */
     .sidebar {
-      position: fixed; top: 52px; left: 0; bottom: 0; width: 220px;
-      background: #111111; overflow-y: auto; padding: 16px 0;
+      position: fixed;
+      top: var(--topbar-h); left: 0; bottom: 0;
+      width: var(--sidebar-w);
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      padding: var(--sp-4) var(--sp-3);
       display: flex; flex-direction: column;
+      gap: var(--sp-1);
     }
-    .sidebar-section { padding: 0 12px; margin-bottom: 4px; }
-    .sidebar-label {
-      font-size: 10px; font-weight: 600; color: #444444;
-      letter-spacing: .08em; text-transform: uppercase;
-      padding: 10px 8px 4px;
-    }
-    .sidebar-link {
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 7px 10px; border-radius: 6px; font-size: 13px; color: #888888;
-      cursor: pointer; transition: background .1s;
+    .nav-item {
+      position: relative;
+      display: flex; align-items: center;
+      gap: var(--sp-3);
+      height: 40px;
+      padding: 0 var(--sp-3);
+      border-radius: var(--r-md);
+      color: var(--text-secondary);
+      font-size: 14px; font-weight: 500;
       text-decoration: none !important;
+      transition: background var(--d-micro) var(--ease-out),
+                  color    var(--d-micro) var(--ease-out);
     }
-    .sidebar-link:hover { background: #1F1F1F; color: #EEEEEE; }
-    .sidebar-link.active { background: #2563EB; color: #fff; font-weight: 600; }
-    .sidebar-link .icon { margin-right: 8px; font-size: 13px; }
-    .sidebar-divider { border: none; border-top: 1px solid #222222; margin: 10px 12px; }
-
-    /* ── 메인 컨텐츠 ── */
-    .layout { display: flex; padding-top: 52px; }
-    .main { margin-left: 220px; flex: 1; padding: 24px; min-width: 0; }
-
-    /* ── 카드 / 테이블 ── */
-    .card { background: #fff; border-radius: 8px; border: 1px solid #EBEBEB; padding: 20px; margin-bottom: 16px; }
-    .card-title { font-size: 13px; font-weight: 600; margin-bottom: 12px; color: #111111; letter-spacing: -.01em; }
-
-    table { width: 100%; border-collapse: collapse; }
-    th { background: #FAFAFA; text-align: left; padding: 10px 12px; font-size: 11px; font-weight: 600; color: #999999; border-bottom: 1px solid #EBEBEB; text-transform: uppercase; letter-spacing: .04em; }
-    td { padding: 10px 12px; border-bottom: 1px solid #F5F5F5; vertical-align: middle; }
-    tr:last-child td { border-bottom: none; }
-    tr:hover td { background: #FAFAFA; }
-
-    /* ── 배지 — 상태 구분용 컬러만 사용 ── */
-    .badge { display: inline-block; padding: 2px 9px; border-radius: 999px; font-size: 11px; font-weight: 600; }
-    .badge-reviewing   { background: #F3F4F6; color: #6B7280; }
-    .badge-replied     { background: #DBEAFE; color: #1D4ED8; }
-    .badge-negotiating { background: #EDE9FE; color: #5B21B6; }
-    .badge-quoted      { background: #FEF3C7; color: #92400E; }
-    .badge-contracting { background: #D1FAE5; color: #065F46; }
-    .badge-signed      { background: #DCFCE7; color: #166534; }
-    .badge-closed_won  { background: #111111; color: #FFFFFF; }
-    .badge-knock_reply { background: #FEF3C7; color: #92400E; }
-    .badge-knock_quote { background: #FEF3C7; color: #92400E; }
-    .badge-closed_lost { background: #374151; color: #FFFFFF; }
-    .badge-inquiry     { background: #F3F4F6; color: #6B7280; }
-
-    /* ── 버튼 ── */
-    .btn { display: inline-block; padding: 7px 14px; border-radius: 6px; font-size: 13px; font-weight: 500; cursor: pointer; border: none; }
-    .btn:disabled { opacity: .35; cursor: not-allowed; }
-    .btn-primary  { background: #2563EB; color: #fff; }
-    .btn-primary:hover:not(:disabled) { background: #1D4ED8; }
-    .btn-green    { background: #1F2937; color: #fff; }
-    .btn-green:hover:not(:disabled) { background: #374151; }
-    .btn-orange   { background: #1F2937; color: #fff; }
-    .btn-orange:hover:not(:disabled) { background: #374151; }
-    .btn-purple   { background: #1F2937; color: #fff; }
-    .btn-purple:hover:not(:disabled) { background: #374151; }
-    .btn-red      { background: #991B1B; color: #fff; }
-    .btn-red:hover:not(:disabled) { background: #7F1D1D; }
-    .btn-gray     { background: #F3F4F6; color: #374151; }
-    .btn-gray:hover:not(:disabled) { background: #E5E7EB; }
-
-    /* ── 폼 ── */
-    label { display: block; font-size: 12px; font-weight: 600; color: #6B7280; margin-bottom: 4px; }
-    input[type=text], select, textarea {
-      width: 100%; padding: 7px 10px; border: 1px solid #E5E7EB;
-      border-radius: 6px; font-size: 13px; font-family: inherit; background: #fff;
+    .nav-item .icon { width: 18px; height: 18px; flex-shrink: 0; }
+    .nav-item:hover { background: #F3F4F6; color: var(--text-primary); }
+    .nav-item.active {
+      background: #F3F4F6;
+      color: var(--text-primary);
+      font-weight: 600;
     }
-    textarea { resize: vertical; min-height: 100px; }
-    input[type=text]:focus, select:focus, textarea:focus {
-      outline: none; border-color: #2563EB; box-shadow: 0 0 0 3px rgba(37,99,235,.1);
+    .nav-item.active::before {
+      content: '';
+      position: absolute;
+      left: -8px; top: 8px; bottom: 8px;
+      width: 3px; border-radius: 2px;
+      background: var(--primary);
     }
 
-    /* ── 유틸 ── */
-    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-    .field { margin-bottom: 10px; }
-    .trigger-bar { display: flex; gap: 8px; flex-wrap: wrap; }
-    .trigger-bar form { display: inline; }
+    /* ── Layout ─────────────────────────────────────────────────────── */
+    .layout {
+      padding-top: var(--topbar-h);
+      padding-left: var(--sidebar-w);
+      min-height: 100vh;
+    }
+    .main {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: var(--sp-8) var(--sp-6);
+    }
+
+    /* ── Typography ─────────────────────────────────────────────────── */
+    .h-page    { font-size: 20px; font-weight: 700; color: var(--text-primary); letter-spacing: -.01em; }
+    .h-section { font-size: 14px; font-weight: 600; color: var(--text-primary); }
+    .h-deal    { font-size: 18px; font-weight: 700; color: var(--text-primary); letter-spacing: -.01em; }
+    .text-body  { font-size: 14px; color: var(--text-primary); }
+    .text-meta  { font-size: 12px; color: var(--text-muted); }
+    .text-muted { color: var(--text-muted); }
+    .text-secondary { color: var(--text-secondary); }
+    .micro      { font-size: 11px; font-weight: 600; color: var(--text-secondary); }
+
+    /* ── Card ───────────────────────────────────────────────────────── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      padding: var(--sp-5);
+    }
+    .card-action {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r-md);
+      cursor: pointer;
+      transition: border-color var(--d-micro) var(--ease-out),
+                  background  var(--d-micro) var(--ease-out);
+    }
+    .card-action:hover { border-color: var(--border-strong); background: var(--surface); }
+
+    /* ── Badge ──────────────────────────────────────────────────────── */
+    .badge {
+      display: inline-flex; align-items: center;
+      height: 22px; padding: 0 var(--sp-2);
+      border-radius: var(--r-sm);
+      font-size: 11px; font-weight: 600;
+      background: var(--badge-stage-bg);
+      color: var(--badge-stage-tx);
+    }
+    .badge-closed { background: var(--badge-closed-bg); color: var(--badge-closed-tx); }
+    .badge-count {
+      background: transparent;
+      color: var(--text-muted);
+      padding: 0;
+    }
+
+    /* ── Status dot ─────────────────────────────────────────────────── */
+    .dot {
+      display: inline-block; width: 8px; height: 8px;
+      border-radius: 50%; flex-shrink: 0;
+    }
+    .dot-critical  { background: var(--critical); }
+    .dot-attention { background: var(--attention); }
+    .dot-action    { background: var(--action); }
+    .dot-upcoming  { background: var(--upcoming); }
+
+    /* ── Button ─────────────────────────────────────────────────────── */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      gap: var(--sp-2);
+      height: 36px; padding: 0 var(--sp-3);
+      border: none; background: none;
+      border-radius: var(--r-md);
+      font-family: var(--font); font-size: 14px; font-weight: 600;
+      transition: background var(--d-micro) var(--ease-out),
+                  border-color var(--d-micro) var(--ease-out),
+                  color var(--d-micro) var(--ease-out);
+    }
+    .btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn-primary {
+      background: var(--primary); color: #fff;
+    }
+    .btn-primary:hover:not(:disabled) { background: var(--primary-hover); }
+    .btn-secondary {
+      background: var(--surface); color: var(--text-primary);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover:not(:disabled) { background: #F3F4F6; }
+    .btn-ghost { background: transparent; color: var(--text-secondary); }
+    .btn-ghost:hover:not(:disabled) { background: #F3F4F6; color: var(--text-primary); }
+    .btn-danger {
+      background: var(--surface); color: var(--critical);
+      border: 1px solid #FCA5A5;
+    }
+    .btn-danger:hover:not(:disabled) { background: #FEF2F2; }
+
+    /* ── Input ──────────────────────────────────────────────────────── */
+    input[type=text], input[type=email], select, textarea {
+      width: 100%;
+      height: 36px;
+      padding: 0 var(--sp-3);
+      border: 1px solid var(--border);
+      border-radius: var(--r-md);
+      background: var(--surface);
+      font-family: inherit; font-size: 14px;
+      color: var(--text-primary);
+      transition: border-color var(--d-micro) var(--ease-out),
+                  box-shadow   var(--d-micro) var(--ease-out);
+    }
+    textarea { height: auto; min-height: 100px; padding: var(--sp-2) var(--sp-3); resize: vertical; line-height: 1.6; }
+    input[type=text]:focus, input[type=email]:focus, select:focus, textarea:focus {
+      outline: none; border-color: var(--primary);
+      box-shadow: var(--focus-ring);
+    }
+    label {
+      display: block;
+      font-size: 12px; font-weight: 600; color: var(--text-secondary);
+      margin-bottom: var(--sp-1);
+    }
+
+    /* ── Utility ────────────────────────────────────────────────────── */
+    .flex { display: flex; }
+    .flex-col { display: flex; flex-direction: column; }
+    .gap-1 { gap: var(--sp-1); }
+    .gap-2 { gap: var(--sp-2); }
+    .gap-3 { gap: var(--sp-3); }
+    .gap-4 { gap: var(--sp-4); }
+    .gap-6 { gap: var(--sp-6); }
+    .items-center { align-items: center; }
+    .items-start { align-items: flex-start; }
+    .justify-between { justify-content: space-between; }
+    .mb-2 { margin-bottom: var(--sp-2); }
+    .mb-3 { margin-bottom: var(--sp-3); }
+    .mb-4 { margin-bottom: var(--sp-4); }
+    .mb-5 { margin-bottom: var(--sp-5); }
+    .mb-6 { margin-bottom: var(--sp-6); }
+    .mb-8 { margin-bottom: var(--sp-8); }
+    .mt-2 { margin-top: var(--sp-2); }
+    .mt-4 { margin-top: var(--sp-4); }
+    .mt-6 { margin-top: var(--sp-6); }
+    .text-center { text-align: center; }
+
+    /* ── Empty state ────────────────────────────────────────────────── */
+    .empty {
+      text-align: center;
+      padding: var(--sp-12);
+      color: var(--text-muted);
+      font-size: 13px;
+    }
   </style>
+
+  {% block head_extra %}{% endblock %}
 </head>
 <body>
 
-  {# ── 상단 바 ── #}
   <header class="topbar">
-    <div class="topbar-brand">ANTIEGG <span>B2B</span></div>
+    <div class="topbar-brand">
+      <i data-lucide="sparkles" class="logo"></i>
+      ANTIEGG <span style="color: var(--text-muted); font-weight: 500;">B2B</span>
+    </div>
+    <div class="topbar-spacer"></div>
+    <button class="topbar-cmdk" type="button" onclick="alert('Cmd+K는 I-5에서 구현됩니다');">
+      <i data-lucide="search" style="width:14px; height:14px;"></i>
+      <span>검색</span>
+      <kbd>⌘K</kbd>
+    </button>
+    <div class="topbar-user">
+      류진 <i data-lucide="chevron-down" style="width:14px; height:14px;"></i>
+    </div>
   </header>
 
+  <aside class="sidebar">
+    <a href="/" class="nav-item {% if request.url.path in ('/', '/inbox') %}active{% endif %}">
+      <i data-lucide="inbox" class="icon"></i>
+      <span>인박스</span>
+    </a>
+    <a href="/pipeline" class="nav-item {% if request.url.path == '/pipeline' %}active{% endif %}">
+      <i data-lucide="layout-grid" class="icon"></i>
+      <span>파이프라인</span>
+    </a>
+  </aside>
+
   <div class="layout">
-
-    {# ── 사이드바 ── #}
-    <aside class="sidebar">
-
-      <div class="sidebar-section">
-        <a href="/" class="sidebar-link {% if request.url.path == '/' %}active{% endif %}">
-          <span><span class="icon">🏠</span>대시보드</span>
-        </a>
-      </div>
-
-      <hr class="sidebar-divider">
-
-      <div class="sidebar-section">
-        <div class="sidebar-label">진행 딜</div>
-        {% set active_stages = [
-          ('REVIEWING',   '·'),
-          ('REPLIED',     '·'),
-          ('NEGOTIATING', '·'),
-          ('QUOTED',      '·'),
-          ('CONTRACTING', '·'),
-          ('SIGNED',      '·'),
-        ] %}
-        {% for stage, icon in active_stages %}
-        {% set cnt = stage_counts.get(stage, 0) %}
-        <a href="/?stage={{ stage }}" class="sidebar-link {% if request.query_params.get('stage') == stage %}active{% endif %}">
-          <span><span class="icon">{{ icon }}</span>{{ stage }}</span>
-        </a>
-        {% endfor %}
-      </div>
-
-      <hr class="sidebar-divider">
-
-      <div class="sidebar-section">
-        <div class="sidebar-label">종료 딜</div>
-        {% set closed_stages = [
-          ('CLOSED_WON',  '·'),
-          ('CLOSED_LOST', '·'),
-          ('KNOCK_REPLY', '·'),
-          ('KNOCK_QUOTE', '·'),
-        ] %}
-        {% for stage, icon in closed_stages %}
-        <a href="/?stage={{ stage }}" class="sidebar-link {% if request.query_params.get('stage') == stage %}active{% endif %}">
-          <span><span class="icon">{{ icon }}</span>{{ stage }}</span>
-        </a>
-        {% endfor %}
-      </div>
-
-      <hr class="sidebar-divider">
-
-      <div class="sidebar-section">
-        <div class="sidebar-label">전체</div>
-        <a href="/" class="sidebar-link {% if not request.query_params.get('stage') and request.url.path == '/' %}active{% endif %}">
-          <span><span class="icon">📁</span>전체 딜</span>
-        </a>
-      </div>
-
-    </aside>
-
-    {# ── 메인 ── #}
     <main class="main">
       {% block content %}{% endblock %}
     </main>
-
   </div>
+
+  <!-- Lucide icons (CDN) -->
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+  <script>
+    if (window.lucide) lucide.createIcons();
+  </script>
+
+  {% block body_extra %}{% endblock %}
 </body>
 </html>
