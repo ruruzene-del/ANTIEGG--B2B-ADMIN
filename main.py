@@ -106,6 +106,57 @@ def _classify_inbox_upcoming(deal: dict) -> dict:
     stage = deal.get('stage', '')
     return {'dot': 'upcoming', 'label': f'{stage} 후 6일 — 내일 노크 자동 전환 예정'}
 
+# ── v2: 파이프라인 Phase 그루핑 ────────────────────────────────────────
+PHASE_MAP = {
+    'REVIEWING':   '새 문의',
+    'REPLIED':     '응답·협상',
+    'NEGOTIATING': '응답·협상',
+    'KNOCK_REPLY': '응답·협상',
+    'QUOTED':      '견적·계약',
+    'CONTRACTING': '견적·계약',
+    'KNOCK_QUOTE': '견적·계약',
+    'SIGNED':      '체결',
+    'CLOSED_WON':  '체결',
+    'CLOSED_LOST': '종료',
+}
+PHASE_ORDER = ['새 문의', '응답·협상', '견적·계약', '체결']
+STAGE_ABBR = {
+    'REVIEWING':   'REVIEW.',
+    'REPLIED':     'REPLIED',
+    'NEGOTIATING': 'NEGOT.',
+    'KNOCK_REPLY': 'KNOCK_R.',
+    'QUOTED':      'QUOTED',
+    'CONTRACTING': 'CONTR.',
+    'KNOCK_QUOTE': 'KNOCK_Q.',
+    'SIGNED':      'SIGNED',
+    'CLOSED_WON':  'CLOSED_W',
+    'CLOSED_LOST': 'CLOSED_L',
+}
+
+def _pipeline_marker(deal: dict):
+    """파이프라인 카드 dot. None이면 마커 없음."""
+    triggers = [
+        deal.get('trigger_reply_send'),
+        deal.get('trigger_quote_gen'),
+        deal.get('trigger_contract_gen'),
+        deal.get('trigger_contract_send'),
+        deal.get('trigger_knock_send'),
+    ]
+    if any(t == 'ERROR' for t in triggers):
+        return 'critical'
+    if any(t == 'DRAFT' for t in triggers):
+        return 'attention'
+    # 임박 (REPLIED/QUOTED + 6일 무응답)
+    if deal.get('stage') in ('REPLIED', 'QUOTED'):
+        try:
+            updated = datetime.fromisoformat(deal.get('updated_at', ''))
+            days = (datetime.now() - updated).days
+            if 6 <= days < 7:
+                return 'upcoming'
+        except Exception:
+            pass
+    return None
+
 # ── 딜 목록 ──────────────────────────────────────────────────────────────────
 
 PIPELINE_STAGES = ['REVIEWING', 'REPLIED', 'NEGOTIATING', 'QUOTED', 'CONTRACTING', 'SIGNED', 'CLOSED_WON']
@@ -146,13 +197,41 @@ async def inbox(request: Request):
     })
 
 @app.get('/pipeline', response_class=HTMLResponse)
-async def pipeline_page(request: Request):
-    """v2 파이프라인 stub — I-3에서 풀 구현."""
-    stage_counts = db.get_stage_counts()
-    active_count = sum(stage_counts.get(s, 0) for s in ACTIVE_STAGES)
+async def pipeline_page(request: Request, show_closed: bool = False):
+    """파이프라인 — 4 Phase Kanban + 종료 토글."""
+    all_deals = db.get_all_deals()
+
+    phases = {p: [] for p in PHASE_ORDER}
+    closed_lost = []
+
+    for d in all_deals:
+        stage = d.get('stage') or 'REVIEWING'
+        phase = PHASE_MAP.get(stage, '새 문의')
+        item = {
+            'deal':      d,
+            'sub_stage': STAGE_ABBR.get(stage, stage),
+            'marker':    _pipeline_marker(d),
+        }
+        if phase == '종료':
+            closed_lost.append(item)
+        else:
+            phases[phase].append(item)
+
+    for p in PHASE_ORDER:
+        phases[p].sort(key=lambda x: x['deal'].get('updated_at') or '', reverse=True)
+    closed_lost.sort(key=lambda x: x['deal'].get('updated_at') or '', reverse=True)
+
+    active_count = sum(len(phases[p]) for p in PHASE_ORDER)
+    closed_count = len(closed_lost)
+
     return templates.TemplateResponse('pipeline.html', {
-        'request':      request,
-        'active_count': active_count,
+        'request':       request,
+        'phase_order':   PHASE_ORDER,
+        'phases':        phases,
+        'closed_lost':   closed_lost,
+        'active_count':  active_count,
+        'closed_count':  closed_count,
+        'show_closed':   show_closed,
     })
 
 @app.get('/legacy', response_class=HTMLResponse)

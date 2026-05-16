@@ -1,13 +1,138 @@
 {% extends "base.html" %}
 {% block title %}파이프라인 — ANTIEGG B2B{% endblock %}
 
+{% block head_extra %}
+<style>
+  .pipeline-head {
+    display: flex; justify-content: space-between; align-items: flex-start;
+    margin-bottom: var(--sp-5);
+  }
+  .pipeline-toggle {
+    display: inline-flex; align-items: center; gap: var(--sp-2);
+    margin: 0;
+  }
+  .pipeline-toggle label {
+    font-size: 12px; color: var(--text-secondary);
+    cursor: pointer; margin: 0;
+  }
+  .pipeline-toggle input {
+    margin: 0; cursor: pointer;
+    accent-color: var(--primary);
+  }
+
+  .pipeline-board {
+    display: grid;
+    grid-template-columns: repeat({{ 5 if show_closed else 4 }}, minmax(0, 1fr));
+    gap: var(--sp-4);
+    align-items: start;
+  }
+
+  .phase-col {
+    display: flex; flex-direction: column;
+    gap: var(--sp-2);
+    min-width: 0;
+  }
+  .phase-head {
+    display: flex; align-items: baseline; gap: var(--sp-2);
+    padding-bottom: var(--sp-2);
+    border-bottom: 1px solid var(--border);
+    margin-bottom: var(--sp-1);
+  }
+  .phase-name {
+    font-size: 14px; font-weight: 600; color: var(--text-primary);
+  }
+  .phase-count {
+    font-size: 12px; font-weight: 600; color: var(--text-muted);
+  }
+
+  .pipe-card {
+    display: block; position: relative;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-md);
+    padding: var(--sp-3);
+    text-decoration: none !important;
+    color: inherit;
+    transition: border-color var(--d-micro) var(--ease-out);
+  }
+  .pipe-card:hover { border-color: var(--border-strong); }
+  .pipe-card-company {
+    font-size: 14px; font-weight: 600; color: var(--text-primary);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    padding-right: 16px;
+  }
+  .pipe-card-meta {
+    margin-top: var(--sp-1);
+    display: flex; gap: var(--sp-2); align-items: baseline;
+  }
+  .pipe-card-sub {
+    font-size: 11px; font-weight: 600; color: var(--text-secondary);
+  }
+  .pipe-card-time {
+    font-size: 12px; color: var(--text-muted);
+  }
+  .pipe-card-dot {
+    position: absolute; top: var(--sp-3); right: var(--sp-3);
+  }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="mb-6">
-  <h1 class="h-page">파이프라인</h1>
-  <div class="text-meta mt-2">활성 {{ active_count }}건</div>
+<div class="pipeline-head">
+  <div>
+    <h1 class="h-page">파이프라인</h1>
+    <div class="text-meta mt-2">
+      활성 {{ active_count }}건{% if show_closed %} · 종료 {{ closed_count }}건{% endif %}
+    </div>
+  </div>
+  <form method="get" action="/pipeline" class="pipeline-toggle">
+    <input type="checkbox" id="show_closed" name="show_closed" value="true"
+           {% if show_closed %}checked{% endif %}
+           onchange="this.form.submit()">
+    <label for="show_closed">종료 표시</label>
+  </form>
 </div>
 
-<div class="card text-center" style="padding: var(--sp-12);">
-  <div class="h-section mb-3" style="color: var(--text-muted);">I-3에서 구현 예정</div>
+{% if active_count == 0 and closed_count == 0 %}
+<div class="empty">아직 접수된 문의가 없습니다.</div>
+{% else %}
+<div class="pipeline-board">
+  {% for phase in phase_order %}
+  <div class="phase-col">
+    <div class="phase-head">
+      <span class="phase-name">{{ phase }}</span>
+      <span class="phase-count">({{ phases[phase]|length }})</span>
+    </div>
+    {% for item in phases[phase] %}
+    <a href="/deals/{{ item.deal.deal_id }}" class="pipe-card" data-deal-id="{{ item.deal.deal_id }}">
+      <div class="pipe-card-company">{{ item.deal.company or '(미상)' }}</div>
+      <div class="pipe-card-meta">
+        <span class="pipe-card-sub">{{ item.sub_stage }}</span>
+        <span class="pipe-card-time">{{ item.deal.updated_at | relative_time }}</span>
+      </div>
+      {% if item.marker %}<span class="dot dot-{{ item.marker }} pipe-card-dot"></span>{% endif %}
+    </a>
+    {% endfor %}
+  </div>
+  {% endfor %}
+
+  {% if show_closed %}
+  <div class="phase-col">
+    <div class="phase-head">
+      <span class="phase-name">종료</span>
+      <span class="phase-count">({{ closed_count }})</span>
+    </div>
+    {% for item in closed_lost %}
+    <a href="/deals/{{ item.deal.deal_id }}" class="pipe-card" data-deal-id="{{ item.deal.deal_id }}">
+      <div class="pipe-card-company">{{ item.deal.company or '(미상)' }}</div>
+      <div class="pipe-card-meta">
+        <span class="pipe-card-sub">{{ item.sub_stage }}</span>
+        <span class="pipe-card-time">{{ item.deal.updated_at | relative_time }}</span>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
 </div>
+{% endif %}
 {% endblock %}
