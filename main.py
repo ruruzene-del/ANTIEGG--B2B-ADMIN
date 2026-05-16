@@ -47,6 +47,65 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 templates = Jinja2Templates(directory='templates')
 
+# ── v2: Jinja 필터 ──────────────────────────────────────────────────────
+def _relative_time(value):
+    """ISO 시간 문자열을 상대 시간으로. 예: '2시간 전', '어제', '5/14'"""
+    if not value:
+        return '—'
+    try:
+        dt = datetime.fromisoformat(value) if isinstance(value, str) else value
+    except Exception:
+        return str(value)[:10]
+    now = datetime.now()
+    diff = now - dt
+    secs = diff.total_seconds()
+    if secs < 0:
+        return dt.strftime('%m/%d')
+    if secs < 60:
+        return '방금 전'
+    if secs < 3600:
+        return f'{int(secs // 60)}분 전'
+    if dt.date() == now.date():
+        return f'오늘 {dt.strftime("%H:%M")}'
+    if (now.date() - dt.date()).days == 1:
+        return '어제'
+    if diff.days < 7:
+        return f'{diff.days}일 전'
+    return dt.strftime('%m/%d')
+
+templates.env.filters['relative_time'] = _relative_time
+
+# ── v2: 인박스 분류 로직 ──────────────────────────────────────────────
+def _classify_inbox_now(deal: dict) -> dict:
+    """현재 손대야 할 가장 시급한 이슈로 분류. (dot 색 + 라벨)"""
+    triggers = [
+        ('reply_send',    '회신',     deal.get('trigger_reply_send')),
+        ('quote_gen',     '견적서',   deal.get('trigger_quote_gen')),
+        ('contract_gen',  '계약서',   deal.get('trigger_contract_gen')),
+        ('contract_send', '전자계약', deal.get('trigger_contract_send')),
+        ('knock_send',    '노크 메일', deal.get('trigger_knock_send')),
+    ]
+    # 1) ERROR
+    for _, label, status in triggers:
+        if status == 'ERROR':
+            return {'dot': 'critical', 'label': f'트리거 오류 — {label} 실패'}
+    # 2) DRAFT 검토
+    for key, label, status in triggers:
+        if status == 'DRAFT' and key in ('reply_send', 'contract_send', 'knock_send'):
+            return {'dot': 'attention', 'label': f'{label} 초안 Gmail에 저장됨 — 검토·발송 필요'}
+    # 3) 새 문의
+    if deal.get('stage') == 'REVIEWING' and not (deal.get('reply_draft') or '').strip():
+        return {'dot': 'action', 'label': '새 문의 — 회신 초안 만들기'}
+    # 4) 노크 발송 필요
+    if deal.get('stage') in ('KNOCK_REPLY', 'KNOCK_QUOTE'):
+        return {'dot': 'action', 'label': '노크 메일 발송 필요'}
+    return {'dot': 'action', 'label': '확인 필요'}
+
+def _classify_inbox_upcoming(deal: dict) -> dict:
+    """6일 무응답 — 노크 임박."""
+    stage = deal.get('stage', '')
+    return {'dot': 'upcoming', 'label': f'{stage} 후 6일 — 내일 노크 자동 전환 예정'}
+
 # ── 딜 목록 ──────────────────────────────────────────────────────────────────
 
 PIPELINE_STAGES = ['REVIEWING', 'REPLIED', 'NEGOTIATING', 'QUOTED', 'CONTRACTING', 'SIGNED', 'CLOSED_WON']
@@ -58,13 +117,32 @@ def _base_ctx(request: Request) -> dict:
 
 @app.get('/', response_class=HTMLResponse)
 async def inbox(request: Request):
-    """v2 인박스 stub — I-2에서 풀 구현."""
+    """인박스 — '오늘 손댈 것' 중심."""
     stage_counts = db.get_stage_counts()
     active_count = sum(stage_counts.get(s, 0) for s in ACTIVE_STAGES)
+
+    now_deals      = db.get_inbox_now()
+    upcoming_deals = db.get_inbox_upcoming()
+
+    now_items = [
+        {'deal': d, 'classify': _classify_inbox_now(d)}
+        for d in now_deals
+    ]
+    upcoming_items = [
+        {'deal': d, 'classify': _classify_inbox_upcoming(d)}
+        for d in upcoming_deals
+    ]
+
+    WEEKDAYS_KO = ['월', '화', '수', '목', '금', '토', '일']
+    today_dt = datetime.now()
+    today_str = today_dt.strftime('%-m월 %-d일') + f' {WEEKDAYS_KO[today_dt.weekday()]}요일'
+
     return templates.TemplateResponse('inbox.html', {
-        'request':      request,
-        'today':        datetime.now().strftime('%Y년 %m월 %d일'),
-        'active_count': active_count,
+        'request':        request,
+        'today':          today_str,
+        'active_count':   active_count,
+        'now_items':      now_items,
+        'upcoming_items': upcoming_items,
     })
 
 @app.get('/pipeline', response_class=HTMLResponse)

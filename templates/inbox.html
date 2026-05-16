@@ -1,16 +1,119 @@
 {% extends "base.html" %}
 {% block title %}인박스 — ANTIEGG B2B{% endblock %}
 
+{% block head_extra %}
+<style>
+  .inbox-group { margin-bottom: var(--sp-6); }
+  .inbox-group-head {
+    display: flex; align-items: baseline; gap: var(--sp-2);
+    margin-bottom: var(--sp-3);
+  }
+  .inbox-group-head .count {
+    font-size: 12px; font-weight: 400; color: var(--text-muted);
+  }
+
+  .inbox-list {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--r-lg);
+    overflow: hidden;
+  }
+  .inbox-item {
+    display: flex; gap: var(--sp-3);
+    padding: var(--sp-4) var(--sp-5);
+    border-bottom: 1px solid #F3F4F6;
+    text-decoration: none !important;
+    color: inherit;
+    transition: background var(--d-micro) var(--ease-out);
+  }
+  .inbox-item:last-child { border-bottom: none; }
+  .inbox-item:hover { background: #FAFAFA; }
+  .inbox-item:active { background: #F3F4F6; }
+  .inbox-item-dot { margin-top: 6px; }
+  .inbox-item-body {
+    flex: 1; min-width: 0;
+    display: flex; flex-direction: column; gap: var(--sp-1);
+  }
+  .inbox-item-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    gap: var(--sp-2);
+  }
+  .inbox-item-company {
+    font-size: 14px; font-weight: 600; color: var(--text-primary);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .inbox-item-deal-id {
+    font-size: 12px; color: var(--text-muted); flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+  }
+  .inbox-item-action {
+    font-size: 14px; color: var(--text-primary);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .inbox-item-time {
+    font-size: 12px; color: var(--text-muted);
+  }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="mb-6">
   <h1 class="h-page">인박스</h1>
   <div class="text-meta mt-2">{{ today }} · 진행중 {{ active_count }}건</div>
 </div>
 
-<div class="card text-center" style="padding: var(--sp-12);">
-  <div class="h-section mb-3" style="color: var(--text-muted);">I-2에서 구현 예정</div>
-  <div class="text-meta">
-    레거시 어드민은 <a href="/legacy">/legacy</a> 에서 확인 가능합니다.
+{% if now_items %}
+<div class="inbox-group">
+  <div class="inbox-group-head">
+    <span class="h-section">지금 해야 함</span>
+    <span class="count">({{ now_items|length }})</span>
+  </div>
+  <div class="inbox-list">
+    {% for item in now_items %}
+    <a href="/deals/{{ item.deal.deal_id }}" class="inbox-item" data-deal-id="{{ item.deal.deal_id }}">
+      <span class="dot dot-{{ item.classify.dot }} inbox-item-dot"></span>
+      <div class="inbox-item-body">
+        <div class="inbox-item-head">
+          <span class="inbox-item-company">{{ item.deal.company or '(회사명 미상)' }}</span>
+          <span class="inbox-item-deal-id">{{ item.deal.deal_id }}</span>
+        </div>
+        <div class="inbox-item-action">{{ item.classify.label }}</div>
+        <div class="inbox-item-time">{{ item.deal.updated_at | relative_time }}</div>
+      </div>
+    </a>
+    {% endfor %}
   </div>
 </div>
+{% endif %}
+
+{% if upcoming_items %}
+<div class="inbox-group">
+  <div class="inbox-group-head">
+    <span class="h-section">임박</span>
+    <span class="count">({{ upcoming_items|length }})</span>
+  </div>
+  <div class="inbox-list">
+    {% for item in upcoming_items %}
+    <a href="/deals/{{ item.deal.deal_id }}" class="inbox-item" data-deal-id="{{ item.deal.deal_id }}">
+      <span class="dot dot-{{ item.classify.dot }} inbox-item-dot"></span>
+      <div class="inbox-item-body">
+        <div class="inbox-item-head">
+          <span class="inbox-item-company">{{ item.deal.company or '(회사명 미상)' }}</span>
+          <span class="inbox-item-deal-id">{{ item.deal.deal_id }}</span>
+        </div>
+        <div class="inbox-item-action">{{ item.classify.label }}</div>
+        <div class="inbox-item-time">{{ item.deal.updated_at | relative_time }}</div>
+      </div>
+    </a>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{% if not now_items and not upcoming_items %}
+<div class="empty">
+  지금 손댈 게 없습니다.<br>
+  진행중 {{ active_count }}건은 <a href="/pipeline">파이프라인</a>에서 확인하세요.
+</div>
+{% endif %}
 {% endblock %}
