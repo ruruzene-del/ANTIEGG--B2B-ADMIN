@@ -5,8 +5,8 @@ from pathlib import Path
 from typing import Optional
 
 LLAMA_SERVER_URL = 'http://127.0.0.1:8080/v1/chat/completions'
-_ROOT_DIR = Path(__file__).parent
-_CONTEXT_DIR = _ROOT_DIR / 'ai_context'
+# ai_context/는 프로젝트 루트 (app/services/ai.py 기준 두 단계 위)
+_CONTEXT_DIR = Path(__file__).resolve().parents[2] / 'ai_context'
 
 # ──────────────────────────────────────────────
 # 내부 유틸
@@ -31,6 +31,23 @@ def _call(prompt: str) -> str:
 
 def _strip_code_block(text: str) -> str:
     return re.sub(r'```(?:json)?', '', text).strip()
+
+
+def _extract_json_obj(text: str) -> str:
+    """LLM 출력에서 첫 번째 균형 잡힌 { ... } JSON 객체를 추출."""
+    text = _strip_code_block(text)
+    start = text.find('{')
+    if start == -1:
+        return text
+    depth = 0
+    for i in range(start, len(text)):
+        if text[i] == '{':
+            depth += 1
+        elif text[i] == '}':
+            depth -= 1
+            if depth == 0:
+                return text[start:i + 1]
+    return text[start:]
 
 # ──────────────────────────────────────────────
 # 스타일 가이드 & 사례 로딩 (모듈 레벨 캐시)
@@ -152,6 +169,120 @@ def generate_reply_draft(summary: str, contact_name: str = '', inquiry_type: str
 회신 초안:"""
 
     return _call(prompt)
+
+def classify_sent_reply(body: str) -> dict:
+    """과거 발신 메일이 B2B 1차 회신인지 판별 + 메타데이터 추출.
+
+    Returns:
+        dict with keys: is_b2b_reply(bool), inquiry_type, summary, contact_name
+    """
+    # 너무 긴 본문은 앞부분만 사용 — Qwen 7B 컨텍스트/JSON 생성 안정성 확보
+    body = body[:1500]
+    prompt = f"""아래 이메일은 ANTIEGG가 과거에 발송한 회신입니다.
+이 회신이 "B2B 신규 문의에 대한 1차 회신"인지 판단하고 JSON으로만 응답하세요.
+
+[판단 기준 — 모두 충족해야 1차 회신]
+1. 새 잠재 고객/파트너의 문의에 답한 회신 (운영성/정산/내부 공유 메일 X)
+2. 인사 → 추가 질문(번호 목록 or 질문형) → 마무리 구조
+
+[출력 스키마 — JSON 한 줄, 코드블록 금지]
+{{"is_b2b_reply": true|false, "inquiry_type": "도입문의|가격문의|파트너십|기술문의|기타", "summary": "원래 문의 핵심 1~2문장 (회신 내용에서 역추론)", "contact_name": "수신자 이름 (없으면 미상)"}}
+
+[예시 1 — 1차 회신]
+이메일:
+"안녕하세요 김민준 과장님, ANTIEGG입니다. AI 마케팅 자동화 솔루션 도입 문의 주셔서 감사드립니다.
+더 자세한 안내를 위해 몇 가지 추가 질문이 필요합니다.
+1. 현재 사용 중인 솔루션이 있으신가요?
+2. 2025년 3분기 도입을 목표로 하시나요?
+확인 후 빠르게 안내드리겠습니다. 감사합니다."
+
+출력:
+{{"is_b2b_reply": true, "inquiry_type": "도입문의", "summary": "마케팅팀 김민준 과장이 AI 마케팅 자동화 솔루션 도입 검토 중. 2025년 3분기 도입 목표.", "contact_name": "김민준"}}
+
+[예시 2 — 1차 회신 아님 (운영성)]
+이메일:
+"안녕하세요 보람님, 피드백 사항 확인했습니다. CJ올리브영으로 표기 수정, 메인 이미지 교체 두 가지 반영하겠습니다. 감사합니다."
+
+출력:
+{{"is_b2b_reply": false, "inquiry_type": "기타", "summary": "", "contact_name": ""}}
+
+[실제 입력]
+이메일:
+{body}
+
+출력:"""
+
+    try:
+        raw = _extract_json_obj(_call(prompt))
+        result = json.loads(raw)
+        result.setdefault('is_b2b_reply', False)
+        result.setdefault('inquiry_type', '기타')
+        result.setdefault('summary', '')
+        result.setdefault('contact_name', '미상')
+        return result
+    except (json.JSONDecodeError, RuntimeError):
+        return {'is_b2b_reply': False, 'inquiry_type': '기타', 'summary': '', 'contact_name': '미상'}
+
+
+def ingest_sent_examples(limit: int = 10, dry_run: bool = False) -> dict:
+    """SENT 폴더에서 B2B 회신을 가져와 분류하고 reply_examples.json에 추가.
+
+    Returns:
+        {'fetched': N, 'classified': N, 'added': N, 'skipped': N, 'last_uid': str}
+    """
+    from app.integrations import email_client
+
+    path = _CONTEXT_DIR / 'reply_examples.json'
+    if path.exists():
+        data = json.loads(path.read_text(encoding='utf-8'))
+    else:
+        data = {'examples': []}
+    examples = data.setdefault('examples', [])
+
+    seen_uids = {e.get('source_uid') for e in examples if e.get('source_uid')}
+    seen_msgids = {e.get('source_message_id') for e in examples if e.get('source_message_id')}
+    last_uid = max((int(u) for u in seen_uids if u and u.isdigit()), default=0)
+    since = str(last_uid) if last_uid else None
+
+    sent = email_client.fetch_sent_emails(limit=limit, since_uid=since)
+    added = 0
+    skipped = 0
+    for s in sent:
+        if s['uid'] in seen_uids or (s.get('message_id') and s['message_id'] in seen_msgids):
+            skipped += 1
+            continue
+        meta = classify_sent_reply(s['body'])
+        if not meta.get('is_b2b_reply'):
+            skipped += 1
+            continue
+        examples.append({
+            'inquiry_type':       meta['inquiry_type'],
+            'summary':            meta['summary'],
+            'contact_name':       meta['contact_name'],
+            'reply':              s['body'],
+            'source_uid':         s['uid'],
+            'source_message_id':  s.get('message_id', ''),
+            'source_subject':     s.get('subject', ''),
+            'source_date':        s.get('date', ''),
+        })
+        added += 1
+
+    if added > 0 and not dry_run:
+        path.write_text(
+            json.dumps(data, ensure_ascii=False, indent=2),
+            encoding='utf-8',
+        )
+        # 캐시 무효화
+        global _examples_cache
+        _examples_cache = None
+
+    return {
+        'fetched':   len(sent),
+        'added':     added,
+        'skipped':   skipped,
+        'last_uid':  sent[-1]['uid'] if sent else since or '',
+    }
+
 
 def generate_knock_draft(company: str, contact_name: str, stage: str) -> str:
     style_guide = _load_style_guide()

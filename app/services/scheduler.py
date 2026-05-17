@@ -6,6 +6,7 @@ from apscheduler.triggers.cron import CronTrigger
 import os
 import db
 from app.integrations import email_client
+from app.integrations import slack
 from app.services import ai
 from app.services import document
 
@@ -222,6 +223,25 @@ def check_closed_lost():
         slack.notify_closed_lost(deal_id, deal['company'])
         logger.info(f'[closed_lost] 전환: {deal_id}')
 
+def ingest_sent_examples():
+    """매일 03:00: Gmail 보낸편지함의 ANTIEGG 회신을 few-shot 예시로 흡수."""
+    logger.info('[ingest_sent] 시작')
+    try:
+        result = ai.ingest_sent_examples(limit=10)
+        logger.info(
+            f'[ingest_sent] fetched={result["fetched"]} '
+            f'added={result["added"]} skipped={result["skipped"]} '
+            f'last_uid={result["last_uid"]}'
+        )
+        if result['added'] > 0:
+            slack.notify_deals(
+                f'📚 *Few-shot 사례 추가* {result["added"]}건 (skip {result["skipped"]})'
+            )
+    except Exception as e:
+        logger.error(f'[ingest_sent] 실패: {e}')
+        slack.notify_errors(f'🔴 *ingest_sent 에러*\n{str(e)}')
+
+
 def daily_reminder():
     """매일 09:00 + 18:00: 미발송 건 Slack 재알림"""
     deals = db.get_deals_by_trigger('trigger_reply_send', 'PENDING')
@@ -249,4 +269,5 @@ def create_scheduler() -> BackgroundScheduler:
     scheduler.add_job(check_closed_lost,  CronTrigger(hour=9, minute=0),  id='check_closed_lost')
     scheduler.add_job(daily_reminder,     CronTrigger(hour=9, minute=0),  id='reminder_morning')
     scheduler.add_job(daily_reminder,     CronTrigger(hour=18, minute=0), id='reminder_evening')
+    scheduler.add_job(ingest_sent_examples, CronTrigger(hour=3, minute=0), id='ingest_sent_examples')
     return scheduler

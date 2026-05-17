@@ -4,13 +4,14 @@ import logging
 from app.services import scheduler as sched
 from contextlib import asynccontextmanager
 from datetime import datetime
-from fastapi import FastAPI, Request, Form
-from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse
+from fastapi import FastAPI, Request, Form, BackgroundTasks
+from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
 from dotenv import load_dotenv
 
 import db
 from app.services import scheduler as sched
+from app.services import ai
 from app.integrations import slack
 
 load_dotenv()
@@ -630,4 +631,19 @@ async def download_contract(token: str):
                 filename=f'{deal["deal_id"]}_contract.docx',
             )
     return HTMLResponse('계약서 파일을 찾을 수 없습니다. 관리자에게 문의하세요.', status_code=404)
+
+# ── Admin: few-shot 사례 수집 ─────────────────────────────────────────────────
+
+@app.post('/admin/ingest-sent')
+async def admin_ingest_sent(background_tasks: BackgroundTasks, limit: int = 10):
+    """Gmail SENT few-shot 사례 수집을 백그라운드로 트리거. 즉시 202 반환."""
+    def _run():
+        try:
+            r = ai.ingest_sent_examples(limit=limit)
+            logging.info(f'[admin/ingest-sent] {r}')
+        except Exception as e:
+            logging.error(f'[admin/ingest-sent] 실패: {e}')
+
+    background_tasks.add_task(_run)
+    return JSONResponse({'status': 'started', 'limit': limit}, status_code=202)
 
