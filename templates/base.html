@@ -130,6 +130,20 @@
       background: var(--surface); border: 1px solid var(--border);
       color: var(--text-muted);
     }
+    .topbar-action {
+      display: inline-flex; align-items: center; gap: var(--sp-2);
+      height: 32px; padding: 0 var(--sp-3);
+      border-radius: var(--r-md);
+      background: transparent;
+      color: var(--text-secondary);
+      font-size: 13px; font-weight: 500;
+      border: 1px solid var(--border);
+      cursor: pointer;
+      transition: background var(--d-micro) var(--ease-out),
+                  color var(--d-micro) var(--ease-out);
+    }
+    .topbar-action:hover { background: #F3F4F6; color: var(--text-primary); }
+    .topbar-action i { width: 14px; height: 14px; }
     .topbar-user {
       display: inline-flex; align-items: center; gap: var(--sp-1);
       color: var(--text-secondary); font-size: 13px;
@@ -785,6 +799,13 @@
       ANTIEGG <span style="color: var(--text-muted); font-weight: 500;">B2B</span>
     </div>
     <div class="topbar-spacer"></div>
+    <button class="topbar-action" type="button"
+            hx-post="/admin/ingest-sent?limit=10"
+            hx-swap="none"
+            title="Gmail 보낸편지함에서 ANTIEGG 회신을 가져와 few-shot 사례로 추가 (백그라운드)">
+      <i data-lucide="refresh-cw"></i>
+      <span>사례 갱신</span>
+    </button>
     <button class="topbar-cmdk" type="button" onclick="openSearch()">
       <i data-lucide="search" style="width:14px; height:14px;"></i>
       <span>검색</span>

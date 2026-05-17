@@ -635,7 +635,7 @@ async def download_contract(token: str):
 # ── Admin: few-shot 사례 수집 ─────────────────────────────────────────────────
 
 @app.post('/admin/ingest-sent')
-async def admin_ingest_sent(background_tasks: BackgroundTasks, limit: int = 10):
+async def admin_ingest_sent(request: Request, background_tasks: BackgroundTasks, limit: int = 10):
     """Gmail SENT few-shot 사례 수집을 백그라운드로 트리거. 즉시 202 반환."""
     def _run():
         try:
@@ -645,5 +645,14 @@ async def admin_ingest_sent(background_tasks: BackgroundTasks, limit: int = 10):
             logging.error(f'[admin/ingest-sent] 실패: {e}')
 
     background_tasks.add_task(_run)
+
+    # HTMX 호출이면 토스트 트리거만, 아니면 JSON
+    if request.headers.get('HX-Request'):
+        resp = HTMLResponse('', status_code=202)
+        resp.headers['HX-Trigger'] = json.dumps({'toast': {
+            'message': f'Few-shot 사례 수집 시작 (limit={limit}) — 백그라운드 진행, 분류당 3~5분',
+            'type':    'info',
+        }})
+        return resp
     return JSONResponse({'status': 'started', 'limit': limit}, status_code=202)
 
