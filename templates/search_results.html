@@ -1,0 +1,61 @@
+{% if not q %}
+  <div class="cmdk-hint">
+    회사·담당자·이메일·딜 ID로 검색하세요.
+  </div>
+{% elif not exact and not deals %}
+  <div class="cmdk-empty">
+    "<strong>{{ q }}</strong>"에 일치하는 딜이 없습니다.
+  </div>
+{% else %}
+  {% if exact %}
+    <div class="cmdk-group-head">정확히 일치</div>
+    <button type="button"
+            class="cmdk-item is-exact"
+            data-deal-id="{{ exact.deal_id }}"
+            hx-get="/deals/{{ exact.deal_id }}/panel"
+            hx-target="#panel-content"
+            hx-swap="innerHTML">
+      <div class="cmdk-item-body">
+        <div class="cmdk-item-head">
+          <span class="cmdk-item-company">{{ exact.company or '(회사명 미상)' }}</span>
+          <span class="cmdk-item-deal-id">{{ exact.deal_id }}</span>
+        </div>
+        <div class="cmdk-item-meta">
+          {{ exact.contact_name or '—' }}
+          {% if exact.email %}· {{ exact.email }}{% endif %}
+        </div>
+      </div>
+      <span class="badge {% if exact.stage in ('CLOSED_WON','CLOSED_LOST') %}badge-closed{% endif %}">
+        {{ stage_abbr.get(exact.stage, exact.stage) }}
+      </span>
+    </button>
+  {% endif %}
+
+  {% if deals %}
+    <div class="cmdk-group-head">
+      딜 <span class="count">({{ deals|length }})</span>
+    </div>
+    {% for d in deals %}
+      <button type="button"
+              class="cmdk-item"
+              data-deal-id="{{ d.deal_id }}"
+              hx-get="/deals/{{ d.deal_id }}/panel"
+              hx-target="#panel-content"
+              hx-swap="innerHTML">
+        <div class="cmdk-item-body">
+          <div class="cmdk-item-head">
+            <span class="cmdk-item-company">{{ d.company or '(회사명 미상)' }}</span>
+            <span class="cmdk-item-deal-id">{{ d.deal_id }}</span>
+          </div>
+          <div class="cmdk-item-meta">
+            {{ d.contact_name or '—' }}
+            {% if d.email %}· {{ d.email }}{% endif %}
+          </div>
+        </div>
+        <span class="badge {% if d.stage in ('CLOSED_WON','CLOSED_LOST') %}badge-closed{% endif %}">
+          {{ stage_abbr.get(d.stage, d.stage) }}
+        </span>
+      </button>
+    {% endfor %}
+  {% endif %}
+{% endif %}

@@ -316,6 +316,31 @@ async def pipeline_page(request: Request, show_closed: bool = False):
         'show_closed':   show_closed,
     })
 
+@app.get('/search', response_class=HTMLResponse)
+async def search(request: Request, q: str = ''):
+    """Cmd+K 글로벌 검색. HTMX 청크 반환."""
+    q = (q or '').strip()
+    if not q:
+        return templates.TemplateResponse('search_results.html', {
+            'request':    request,
+            'q':          '',
+            'exact':      None,
+            'deals':      [],
+            'stage_abbr': STAGE_ABBR,
+        })
+    result = db.search_deals(q, limit=20)
+    exact  = result['exact_deal']
+    deals  = result['deals']
+    if exact:
+        deals = [d for d in deals if d['deal_id'] != exact['deal_id']]
+    return templates.TemplateResponse('search_results.html', {
+        'request':    request,
+        'q':          q,
+        'exact':      exact,
+        'deals':      deals,
+        'stage_abbr': STAGE_ABBR,
+    })
+
 @app.get('/legacy', response_class=HTMLResponse)
 async def dashboard_legacy(request: Request, stage: str = None):
     """레거시 대시보드 (참고용 — I-7에서 제거 예정)."""
