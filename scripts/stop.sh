@@ -1,5 +1,5 @@
 #!/bin/bash
-PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 PID_FILE="$PROJECT_DIR/.pids"
 
 if [ -f "$PID_FILE" ]; then

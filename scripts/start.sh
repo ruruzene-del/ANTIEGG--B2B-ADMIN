@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 MODEL="$PROJECT_DIR/models/qwen2.5-7b-instruct-q4_k_m-00001-of-00002.gguf"
 LLAMA_LOG="$PROJECT_DIR/llama-server.log"
 APP_LOG="$PROJECT_DIR/app.log"

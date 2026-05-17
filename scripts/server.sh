@@ -1,6 +1,6 @@
 #!/bin/bash
 # launchd 전용 — 이 스크립트는 종료되지 않고 계속 실행됨
-PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 MODEL="$PROJECT_DIR/models/qwen2.5-7b-instruct-q4_k_m-00001-of-00002.gguf"
 LLAMA_LOG="$PROJECT_DIR/llama-server.log"
 APP_LOG="$PROJECT_DIR/app.log"
