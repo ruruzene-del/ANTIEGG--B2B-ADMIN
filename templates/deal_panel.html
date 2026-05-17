@@ -106,8 +106,10 @@
   {# ── 같은 회사 이력 (있을 때만) ── #}
   {% if history %}
   <div style="margin-top: var(--sp-5);">
-    <div class="section-head">
-      같은 회사 이력 <span style="color: var(--text-muted); font-weight: 400;">({{ history|length }})</span>
+    <div class="section-head" style="display:flex; justify-content:space-between; align-items:baseline;">
+      <span>같은 회사 이력 <span style="color: var(--text-muted); font-weight: 400;">({{ history|length }})</span></span>
+      <a href="/companies/{{ (deal.company or '(회사명 미상)')|urlencode }}"
+         style="font-size:12px; font-weight:500;">회사 전체 보기 →</a>
     </div>
     <div class="history-list">
       {% for h in history %}

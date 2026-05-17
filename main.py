@@ -316,6 +316,35 @@ async def pipeline_page(request: Request, show_closed: bool = False):
         'show_closed':   show_closed,
     })
 
+@app.get('/companies', response_class=HTMLResponse)
+async def companies_page(request: Request):
+    """회사 목록 — 회사명 그룹별 진행중/총/마지막 활동."""
+    companies = db.get_companies_summary()
+    return templates.TemplateResponse('companies.html', {
+        'request':   request,
+        'companies': companies,
+        'total':     len(companies),
+    })
+
+@app.get('/companies/{company:path}', response_class=HTMLResponse)
+async def company_detail_page(request: Request, company: str):
+    """특정 회사의 모든 딜 (진행중/종료 분리)."""
+    deals  = db.get_deals_by_company(company)
+    active = [d for d in deals if d.get('stage') not in ('CLOSED_WON', 'CLOSED_LOST')]
+    closed = [d for d in deals if d.get('stage') in ('CLOSED_WON', 'CLOSED_LOST')]
+    first_at = min((d.get('created_at') for d in deals if d.get('created_at')), default=None)
+    last_at  = max((d.get('updated_at') for d in deals if d.get('updated_at')), default=None)
+    return templates.TemplateResponse('company_detail.html', {
+        'request':    request,
+        'company':    company,
+        'deals':      deals,
+        'active':     active,
+        'closed':     closed,
+        'first_at':   first_at,
+        'last_at':    last_at,
+        'stage_abbr': STAGE_ABBR,
+    })
+
 @app.get('/search', response_class=HTMLResponse)
 async def search(request: Request, q: str = ''):
     """Cmd+K 글로벌 검색. HTMX 청크 반환."""
