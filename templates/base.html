@@ -855,6 +855,23 @@
     function refreshIcons() { if (window.lucide) lucide.createIcons(); }
     refreshIcons();
 
+    // /?open=<deal_id> 로 진입 시 슬라이드 패널 자동 오픈 (deep link)
+    (function autoOpenFromQuery() {
+      const m = new URLSearchParams(window.location.search).get('open');
+      if (!m) return;
+      const fire = () => {
+        if (!window.htmx) { setTimeout(fire, 50); return; }
+        htmx.ajax('GET', '/deals/' + encodeURIComponent(m) + '/panel', {
+          target: '#panel-content', swap: 'innerHTML',
+        });
+        // 쿼리 파라미터 제거 (뒤로가기 루프 방지)
+        const url = new URL(window.location.href);
+        url.searchParams.delete('open');
+        window.history.replaceState({}, '', url.toString());
+      };
+      window.addEventListener('DOMContentLoaded', fire);
+    })();
+
     function openPanel() {
       document.getElementById('panel-backdrop').classList.add('open');
       const panel = document.getElementById('panel');

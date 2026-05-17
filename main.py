@@ -241,12 +241,7 @@ def _pipeline_marker(deal: dict):
 
 # ── 딜 목록 ──────────────────────────────────────────────────────────────────
 
-PIPELINE_STAGES = ['REVIEWING', 'REPLIED', 'NEGOTIATING', 'QUOTED', 'CONTRACTING', 'SIGNED', 'CLOSED_WON']
-ACTIVE_STAGES   = {'REVIEWING', 'REPLIED', 'NEGOTIATING', 'QUOTED', 'CONTRACTING', 'SIGNED'}
-
-def _base_ctx(request: Request) -> dict:
-    """모든 라우트에 공통으로 넘기는 사이드바용 컨텍스트."""
-    return {'request': request, 'stage_counts': db.get_stage_counts()}
+ACTIVE_STAGES = {'REVIEWING', 'REPLIED', 'NEGOTIATING', 'QUOTED', 'CONTRACTING', 'SIGNED'}
 
 @app.get('/', response_class=HTMLResponse)
 async def inbox(request: Request):
@@ -370,31 +365,6 @@ async def search(request: Request, q: str = ''):
         'stage_abbr': STAGE_ABBR,
     })
 
-@app.get('/legacy', response_class=HTMLResponse)
-async def dashboard_legacy(request: Request, stage: str = None):
-    """레거시 대시보드 (참고용 — I-7에서 제거 예정)."""
-    stage_counts = db.get_stage_counts()
-    all_deals    = db.get_all_deals()
-    action_deals = db.get_action_needed()
-
-    deals = [d for d in all_deals if d['stage'] == stage] if stage else all_deals
-
-    pipeline = [{'stage': s, 'count': stage_counts.get(s, 0)} for s in PIPELINE_STAGES]
-
-    return templates.TemplateResponse('dashboard.html', {
-        **_base_ctx(request),
-        'deals':        deals,
-        'action_deals': action_deals,
-        'pipeline':     pipeline,
-        'active_stage': stage,
-        'stats': {
-            'total':        len(all_deals),
-            'active':       sum(stage_counts.get(s, 0) for s in ACTIVE_STAGES),
-            'closed_won':   stage_counts.get('CLOSED_WON', 0),
-            'needs_action': len(action_deals),
-        },
-    })
-
 # ── 딜 상세 ──────────────────────────────────────────────────────────────────
 
 @app.get('/deals/{deal_id}/panel', response_class=HTMLResponse)
@@ -435,15 +405,12 @@ def _hx_toast_only(request: Request, toast: dict):
         return response
     return None
 
-@app.get('/deals/{deal_id}', response_class=HTMLResponse)
-async def deal_detail(request: Request, deal_id: str):
-    deal = db.get_deal(deal_id)
-    if not deal:
+@app.get('/deals/{deal_id}')
+async def deal_detail(deal_id: str):
+    """직접 URL 접근 시 인박스로 보내며 슬라이드 패널 자동 오픈."""
+    if not db.get_deal(deal_id):
         return HTMLResponse('딜을 찾을 수 없습니다', status_code=404)
-    return templates.TemplateResponse(
-        'deal_detail.html',
-        {**_base_ctx(request), 'deal': deal, 'stage_options': STAGE_OPTIONS},
-    )
+    return RedirectResponse(url=f'/?open={deal_id}', status_code=302)
 
 # ── Stage 변경 ────────────────────────────────────────────────────────────────
 
