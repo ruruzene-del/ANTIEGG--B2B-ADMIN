@@ -139,6 +139,7 @@
       font-size: 13px; font-weight: 500;
       border: 1px solid var(--border);
       cursor: pointer;
+      text-decoration: none !important;
       transition: background var(--d-micro) var(--ease-out),
                   color var(--d-micro) var(--ease-out);
     }
@@ -799,6 +800,11 @@
       ANTIEGG <span style="color: var(--text-muted); font-weight: 500;">B2B</span>
     </div>
     <div class="topbar-spacer"></div>
+    <a href="/deals/new" class="topbar-action"
+       title="Gmail로 들어오지 않은 문의를 수동으로 등록">
+      <i data-lucide="plus"></i>
+      <span>딜 추가</span>
+    </a>
     <button class="topbar-action" type="button"
             hx-post="/admin/ingest-sent?limit=10"
             hx-swap="none"

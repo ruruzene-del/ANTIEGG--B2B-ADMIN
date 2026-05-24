@@ -366,6 +366,41 @@ async def search(request: Request, q: str = ''):
         'stage_abbr': STAGE_ABBR,
     })
 
+# ── 딜 수동 추가 ──────────────────────────────────────────────────────────────
+
+@app.get('/deals/new', response_class=HTMLResponse)
+async def deal_new_form(request: Request):
+    return templates.TemplateResponse('deal_new.html', {
+        'request': request,
+    })
+
+@app.post('/deals/new')
+async def deal_new_submit(
+    request: Request,
+    company:          str = Form(...),
+    contact_name:     str = Form(...),
+    email:            str = Form(...),
+    contact_title:    str = Form(''),
+    contact_phone:    str = Form(''),
+    inquiry_type:     str = Form(''),
+    service_interest: str = Form(''),
+    summary:          str = Form(''),
+):
+    deal = {
+        'company':          company.strip(),
+        'contact_name':     contact_name.strip(),
+        'contact_title':    contact_title.strip(),
+        'contact_phone':    contact_phone.strip(),
+        'email':            email.strip(),
+        'inquiry_type':     inquiry_type.strip(),
+        'service_interest': service_interest.strip(),
+        'summary':          summary.strip(),
+        'reply_draft':      None,
+    }
+    deal_id = db.insert_deal(deal)
+    db.log_activity(deal_id, 'note_added', {'note': '수동으로 딜 추가됨'})
+    return RedirectResponse(f'/?open={deal_id}', status_code=303)
+
 # ── 딜 상세 ──────────────────────────────────────────────────────────────────
 
 @app.get('/deals/{deal_id}/panel', response_class=HTMLResponse)

@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+{% block title %}딜 추가 — ANTIEGG B2B{% endblock %}
+
+{% block head_extra %}
+<style>
+  .form-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--sp-4);
+  }
+  .form-grid .full { grid-column: 1 / -1; }
+  .form-actions {
+    display: flex; justify-content: flex-end; gap: var(--sp-2);
+    margin-top: var(--sp-5);
+  }
+  .required { color: var(--critical); margin-left: 2px; }
+  .form-hint {
+    font-size: 12px; color: var(--text-muted);
+    margin-top: var(--sp-1);
+  }
+  @media (max-width: 720px) {
+    .form-grid { grid-template-columns: 1fr; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+  <h1 class="h-page">딜 추가</h1>
+  <div class="text-meta mt-2">Gmail로 들어오지 않은 문의를 수동으로 등록합니다. 저장 시 <strong>REVIEWING</strong>으로 생성됩니다.</div>
+</div>
+
+<form method="post" action="/deals/new" class="card">
+  <div class="form-grid">
+    <div class="full">
+      <label for="company">회사명<span class="required">*</span></label>
+      <input type="text" id="company" name="company" required autofocus
+             placeholder="예: 안티에그">
+    </div>
+
+    <div>
+      <label for="contact_name">담당자명<span class="required">*</span></label>
+      <input type="text" id="contact_name" name="contact_name" required
+             placeholder="예: 류진">
+    </div>
+
+    <div>
+      <label for="contact_title">직책</label>
+      <input type="text" id="contact_title" name="contact_title"
+             placeholder="예: 마케팅 팀장">
+    </div>
+
+    <div>
+      <label for="email">이메일<span class="required">*</span></label>
+      <input type="email" id="email" name="email" required
+             placeholder="contact@company.com">
+    </div>
+
+    <div>
+      <label for="contact_phone">연락처</label>
+      <input type="text" id="contact_phone" name="contact_phone"
+             placeholder="010-0000-0000">
+    </div>
+
+    <div>
+      <label for="inquiry_type">문의 유형</label>
+      <input type="text" id="inquiry_type" name="inquiry_type"
+             placeholder="예: 캠페인 제휴, 콘텐츠 협업">
+    </div>
+
+    <div>
+      <label for="service_interest">관심 서비스</label>
+      <input type="text" id="service_interest" name="service_interest"
+             placeholder="예: 뉴스레터 광고">
+    </div>
+
+    <div class="full">
+      <label for="summary">요약</label>
+      <textarea id="summary" name="summary" rows="5"
+                placeholder="문의 배경·요구사항 등 메모 (선택)"></textarea>
+      <div class="form-hint">AI 응답 초안 생성에 참고됩니다.</div>
+    </div>
+  </div>
+
+  <div class="form-actions">
+    <a href="/" class="btn btn-secondary">취소</a>
+    <button type="submit" class="btn btn-primary">딜 생성</button>
+  </div>
+</form>
+{% endblock %}
