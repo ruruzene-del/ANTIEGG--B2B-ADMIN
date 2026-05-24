@@ -507,6 +507,37 @@ async def update_stage(request: Request, deal_id: str, stage: str = Form(...)):
         'undo':    {'deal_id': deal_id, 'stage': old_stage},
     })
 
+# ── 딜 기본 정보 수정 ─────────────────────────────────────────────────────────
+
+@app.post('/deals/{deal_id}/info')
+async def update_deal_info(
+    request: Request,
+    deal_id: str,
+    company:          str = Form(''),
+    contact_name:     str = Form(''),
+    contact_title:    str = Form(''),
+    contact_phone:    str = Form(''),
+    email:            str = Form(''),
+    inquiry_type:     str = Form(''),
+    service_interest: str = Form(''),
+    summary:          str = Form(''),
+):
+    db.update_deal(deal_id, {
+        'company':          company.strip(),
+        'contact_name':     contact_name.strip(),
+        'contact_title':    contact_title.strip(),
+        'contact_phone':    contact_phone.strip(),
+        'email':            email.strip(),
+        'inquiry_type':     inquiry_type.strip(),
+        'service_interest': service_interest.strip(),
+        'summary':          summary.strip(),
+    })
+    db.log_activity(deal_id, 'note_added', {'note': '기본 정보 수정'})
+    return _hx_or_redirect(request, deal_id, toast={
+        'message': '기본 정보가 저장되었습니다',
+        'type':    'success',
+    })
+
 # ── Reply Draft 수정 저장 ─────────────────────────────────────────────────────
 
 @app.post('/deals/{deal_id}/reply-draft')

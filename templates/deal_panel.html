@@ -278,13 +278,55 @@
   </details>
 
   <details class="collapsible">
-    <summary>연락처</summary>
+    <summary>기본 정보</summary>
     <div class="collapsible-body">
-      <div class="kv-row"><span class="k">회사</span><span class="v">{{ deal.company or '—' }}</span></div>
-      <div class="kv-row"><span class="k">담당자</span><span class="v">{{ deal.contact_name or '—' }}</span></div>
-      <div class="kv-row"><span class="k">직함</span><span class="v">{{ deal.contact_title or '—' }}</span></div>
-      <div class="kv-row"><span class="k">이메일</span><span class="v">{{ deal.email or '—' }}</span></div>
-      <div class="kv-row"><span class="k">전화</span><span class="v">{{ deal.contact_phone or '—' }}</span></div>
+      <form method="post" action="/deals/{{ deal.deal_id }}/info"
+            hx-post="/deals/{{ deal.deal_id }}/info"
+            hx-target="#panel-content" hx-swap="innerHTML">
+        <div class="flex-col gap-3">
+          <div>
+            <label>회사</label>
+            <input type="text" name="company" value="{{ deal.company or '' }}">
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3);">
+            <div>
+              <label>담당자</label>
+              <input type="text" name="contact_name" value="{{ deal.contact_name or '' }}">
+            </div>
+            <div>
+              <label>직함</label>
+              <input type="text" name="contact_title" value="{{ deal.contact_title or '' }}">
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3);">
+            <div>
+              <label>이메일</label>
+              <input type="email" name="email" value="{{ deal.email or '' }}">
+            </div>
+            <div>
+              <label>전화</label>
+              <input type="text" name="contact_phone" value="{{ deal.contact_phone or '' }}">
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-3);">
+            <div>
+              <label>문의 유형</label>
+              <input type="text" name="inquiry_type" value="{{ deal.inquiry_type or '' }}">
+            </div>
+            <div>
+              <label>관심 서비스</label>
+              <input type="text" name="service_interest" value="{{ deal.service_interest or '' }}">
+            </div>
+          </div>
+          <div>
+            <label>요약</label>
+            <textarea name="summary" style="min-height: 100px;">{{ deal.summary or '' }}</textarea>
+          </div>
+        </div>
+        <div style="margin-top: var(--sp-3);">
+          <button type="submit" class="btn btn-secondary">저장</button>
+        </div>
+      </form>
     </div>
   </details>
 
