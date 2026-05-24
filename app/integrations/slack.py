@@ -4,23 +4,28 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-WEBHOOK_DEALS = os.getenv('SLACK_WEBHOOK_DEALS', '')
-WEBHOOK_ERRORS = os.getenv('SLACK_WEBHOOK_ERRORS', '')
+# 단일 SLACK_WEBHOOK으로 통합 (구버전 DEALS/ERRORS는 폴백)
+SLACK_WEBHOOK = (
+    os.getenv('SLACK_WEBHOOK', '')
+    or os.getenv('SLACK_WEBHOOK_DEALS', '')
+    or os.getenv('SLACK_WEBHOOK_ERRORS', '')
+)
 
-def _post(webhook_url: str, text: str):
-    if not webhook_url:
+def _post(text: str):
+    if not SLACK_WEBHOOK:
         print(f'[Slack] Webhook URL 미설정 — {text[:60]}')
         return
     try:
-        requests.post(webhook_url, json={'text': text}, timeout=5)
+        requests.post(SLACK_WEBHOOK, json={'text': text}, timeout=5)
     except Exception as e:
         print(f'[Slack Error] {e}')
 
 def notify_deals(text: str):
-    _post(WEBHOOK_DEALS, text)
+    _post(text)
 
 def notify_errors(text: str):
-    _post(WEBHOOK_ERRORS, text)
+    # 에러는 prefix로 구분 (단일 채널 사용)
+    _post(text if text.startswith('🔴') else f'🔴 {text}')
 
 def notify_new_inquiry(deal_id: str, deal: dict):
     msg = (
