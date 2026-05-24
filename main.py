@@ -3,7 +3,7 @@ import json
 import logging
 from app.services import scheduler as sched
 from contextlib import asynccontextmanager
-from datetime import datetime
+from datetime import datetime, timedelta
 from fastapi import FastAPI, Request, Form, BackgroundTasks
 from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse, JSONResponse
 from fastapi.templating import Jinja2Templates
@@ -21,6 +21,9 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
 )
+db.init_db()  # DBErrorHandler가 의존하므로 등록 전에 테이블 준비
+from app.services.error_log import install_db_handler
+install_db_handler()
 
 TRIGGER_COL_MAP = {
     'reply-send':    'trigger_reply_send',
@@ -268,9 +271,13 @@ async def inbox(request: Request):
     today_dt = datetime.now()
     today_str = today_dt.strftime('%-m월 %-d일') + f' {WEEKDAYS_KO[today_dt.weekday()]}요일'
 
+    since_24h = (today_dt - timedelta(hours=24)).isoformat()
+    recent_error_count = db.count_errors_since(since_24h)
+
     return templates.TemplateResponse('inbox.html', {
-        'request':        request,
-        'today':          today_str,
+        'request':            request,
+        'recent_error_count': recent_error_count,
+        'today':              today_str,
         'active_count':   active_count,
         'now_items':      now_items,
         'upcoming_items': upcoming_items,
@@ -366,6 +373,16 @@ async def search(request: Request, q: str = ''):
         'exact':      exact,
         'deals':      deals,
         'stage_abbr': STAGE_ABBR,
+    })
+
+# ── 에러 로그 ─────────────────────────────────────────────────────────────────
+
+@app.get('/errors', response_class=HTMLResponse)
+async def errors_page(request: Request):
+    errors = db.get_recent_errors(limit=100)
+    return templates.TemplateResponse('errors.html', {
+        'request': request,
+        'errors':  errors,
     })
 
 # ── 세팅 ──────────────────────────────────────────────────────────────────────

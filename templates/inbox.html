@@ -62,6 +62,14 @@
   <div class="text-meta mt-2">{{ today }} · 진행중 {{ active_count }}건</div>
 </div>
 
+{% if recent_error_count and recent_error_count > 0 %}
+<a href="/errors" class="inbox-error-alert" style="display:flex; align-items:center; gap:var(--sp-3); padding:var(--sp-3) var(--sp-4); background:#FEF2F2; border:1px solid #FCA5A5; border-radius:var(--r-md); margin-bottom:var(--sp-4); text-decoration:none !important; color:#9F1239;">
+  <span class="dot" style="background:var(--critical);"></span>
+  <span style="font-size:13px; font-weight:600;">최근 24시간 에러 {{ recent_error_count }}건</span>
+  <span style="margin-left:auto; font-size:12px; color:#9F1239;">자세히 →</span>
+</a>
+{% endif %}
+
 {% if now_items %}
 <div class="inbox-group">
   <div class="inbox-group-head">

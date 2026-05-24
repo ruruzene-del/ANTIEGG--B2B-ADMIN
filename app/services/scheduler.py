@@ -242,6 +242,15 @@ def daily_backup():
         slack.notify_errors(f'🔴 *backup 전체 실패*\n{str(e)}')
 
 
+def purge_old_errors():
+    """매일 03:45: errors 테이블에서 30일 이상된 항목 정리."""
+    try:
+        n = db.purge_old_errors(days=30)
+        logger.info(f'[purge_errors] {n}건 정리')
+    except Exception as e:
+        logger.error(f'[purge_errors] 실패: {e}')
+
+
 def ingest_sent_examples():
     """매일 03:00: Gmail 보낸편지함의 ANTIEGG 회신을 few-shot 예시로 흡수."""
     logger.info('[ingest_sent] 시작')
@@ -290,4 +299,5 @@ def create_scheduler() -> BackgroundScheduler:
     scheduler.add_job(daily_reminder,     CronTrigger(hour=18, minute=0), id='reminder_evening')
     scheduler.add_job(ingest_sent_examples, CronTrigger(hour=3, minute=0), id='ingest_sent_examples')
     scheduler.add_job(daily_backup,         CronTrigger(hour=3, minute=30), id='daily_backup')
+    scheduler.add_job(purge_old_errors,     CronTrigger(hour=3, minute=45), id='purge_old_errors')
     return scheduler

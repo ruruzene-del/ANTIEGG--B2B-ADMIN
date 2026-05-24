@@ -1,7 +1,7 @@
 import sqlite3
 import os
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from contextlib import contextmanager
 
 DB_PATH = os.path.join(os.path.dirname(__file__), 'b2b.db')
@@ -86,6 +86,16 @@ def init_db():
             value       TEXT,
             updated_at  TEXT
         );
+
+        CREATE TABLE IF NOT EXISTS errors (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            level        TEXT NOT NULL,
+            logger_name  TEXT,
+            message      TEXT,
+            traceback    TEXT,
+            created_at   TEXT NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_errors_created_at ON errors(created_at DESC);
         """)
         for col in [
             'cond_company_addr', 'cond_company_ceo', 'cond_company_biz_no',
@@ -353,3 +363,32 @@ def get_activities(deal_id: str, limit: int = 50) -> list:
                 pass
         out.append(d)
     return out
+
+# ── 에러 로그 ───────────────────────────────────────────────────────────────
+def insert_error(level: str, logger_name: str, message: str, tb: str = None):
+    """logging.Handler에서 호출. 절대 raise하면 안 됨."""
+    with get_conn() as conn:
+        conn.execute(
+            'INSERT INTO errors (level, logger_name, message, traceback, created_at) '
+            'VALUES (?, ?, ?, ?, ?)',
+            (level, logger_name, message, tb, datetime.now().isoformat()),
+        )
+
+def get_recent_errors(limit: int = 50) -> list:
+    with get_conn() as conn:
+        rows = conn.execute(
+            'SELECT * FROM errors ORDER BY created_at DESC LIMIT ?', (limit,)
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+def count_errors_since(iso_ts: str) -> int:
+    with get_conn() as conn:
+        return conn.execute(
+            'SELECT COUNT(*) FROM errors WHERE created_at >= ?', (iso_ts,)
+        ).fetchone()[0]
+
+def purge_old_errors(days: int = 30) -> int:
+    cutoff = (datetime.now() - timedelta(days=days)).isoformat()
+    with get_conn() as conn:
+        cur = conn.execute('DELETE FROM errors WHERE created_at < ?', (cutoff,))
+        return cur.rowcount
