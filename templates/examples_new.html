@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}사례 추가 — ANTIEGG B2B{% endblock %}
+
+{% block head_extra %}
+<style>
+  .form-actions {
+    display: flex; justify-content: flex-end; gap: var(--sp-2);
+    margin-top: var(--sp-5);
+  }
+  .form-hint {
+    font-size: 12px; color: var(--text-muted);
+    margin-top: var(--sp-1);
+  }
+  .form-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: var(--sp-4);
+  }
+  .form-grid .full { grid-column: 1 / -1; }
+  @media (max-width: 720px) {
+    .form-grid { grid-template-columns: 1fr; }
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+  <h1 class="h-page">사례 추가</h1>
+  <div class="text-meta mt-2">자동 수집되지 않은 좋은 회신을 직접 등록합니다. AI 응답 초안 생성 시 inquiry_type 일치 사례가 우선 사용됩니다.</div>
+</div>
+
+<form method="post" action="/examples/new" class="card">
+  <div class="form-grid">
+    <div>
+      <label for="inquiry_type">문의 유형</label>
+      <select id="inquiry_type" name="inquiry_type">
+        {% for t in inquiry_types %}
+        <option value="{{ t }}">{{ t }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label for="contact_name">담당자명</label>
+      <input type="text" id="contact_name" name="contact_name" placeholder="미상">
+    </div>
+    <div class="full">
+      <label for="summary">문의 요약</label>
+      <input type="text" id="summary" name="summary"
+             placeholder="예: 푸드테크 스타트업 대표, AX 도입 검토 — 마케터 1명 운영 중">
+    </div>
+    <div class="full">
+      <label for="reply">회신 본문<span style="color:var(--critical); margin-left:2px;">*</span></label>
+      <textarea id="reply" name="reply" rows="12" required
+                placeholder="실제 발송한 회신 본문 그대로 (인사 + 추가 질문 + 마무리 구조)"></textarea>
+      <div class="form-hint">이 회신의 말투·구조가 다음 AI 초안에 참고됩니다.</div>
+    </div>
+  </div>
+
+  <div class="form-actions">
+    <a href="/examples" class="btn btn-secondary">취소</a>
+    <button type="submit" class="btn btn-primary">사례 추가</button>
+  </div>
+</form>
+{% endblock %}

@@ -835,6 +835,10 @@
       <i data-lucide="building-2" class="icon"></i>
       <span>회사</span>
     </a>
+    <a href="/examples" class="nav-item {% if request.url.path.startswith('/examples') %}active{% endif %}">
+      <i data-lucide="book-open" class="icon"></i>
+      <span>사례</span>
+    </a>
     <a href="/settings" class="nav-item {% if request.url.path == '/settings' %}active{% endif %}">
       <i data-lucide="settings" class="icon"></i>
       <span>세팅</span>

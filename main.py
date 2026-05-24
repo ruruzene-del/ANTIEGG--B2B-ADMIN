@@ -14,6 +14,7 @@ from app.services import scheduler as sched
 from app.services import ai
 from app.services import settings
 from app.services import backup
+from app.services import examples as ex_svc
 from app.integrations import slack
 
 load_dotenv()
@@ -374,6 +375,54 @@ async def search(request: Request, q: str = ''):
         'deals':      deals,
         'stage_abbr': STAGE_ABBR,
     })
+
+# ── Few-shot 사례 관리 ────────────────────────────────────────────────────────
+
+@app.get('/examples', response_class=HTMLResponse)
+async def examples_page(request: Request):
+    items = ex_svc.list_all()
+    # 최신순 (created_at 또는 source_date 기준; 없으면 그대로)
+    items.sort(
+        key=lambda e: e.get('created_at') or e.get('source_date') or '',
+        reverse=True,
+    )
+    return templates.TemplateResponse('examples.html', {
+        'request': request,
+        'items':   items,
+    })
+
+@app.post('/examples/delete/{ex_id}')
+async def examples_delete(request: Request, ex_id: str):
+    removed = ex_svc.delete_by_id(ex_id)
+    if removed is None:
+        return HTMLResponse('Not found', status_code=404)
+    if request.headers.get('HX-Request'):
+        # 카드 1개만 삭제 — hx-target은 클라이언트가 해당 카드 element로 지정
+        resp = HTMLResponse('', status_code=200)
+        resp.headers['HX-Trigger'] = json.dumps({'toast': {
+            'message': '사례를 삭제했습니다',
+            'type':    'success',
+        }})
+        return resp
+    return RedirectResponse('/examples', status_code=303)
+
+@app.get('/examples/new', response_class=HTMLResponse)
+async def examples_new_form(request: Request):
+    return templates.TemplateResponse('examples_new.html', {
+        'request':        request,
+        'inquiry_types':  ex_svc.INQUIRY_TYPES,
+    })
+
+@app.post('/examples/new')
+async def examples_new_submit(
+    request: Request,
+    inquiry_type: str = Form('기타'),
+    summary:      str = Form(''),
+    contact_name: str = Form(''),
+    reply:        str = Form(...),
+):
+    ex_svc.add_manual(inquiry_type, summary, contact_name, reply)
+    return RedirectResponse('/examples', status_code=303)
 
 # ── 에러 로그 ─────────────────────────────────────────────────────────────────
 
