@@ -4,18 +4,22 @@ from docx import Document
 from docx.shared import Pt, Cm, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_ALIGN_VERTICAL
-from dotenv import load_dotenv
 
-load_dotenv()
+from app.services import settings
 
 OUTPUT_DIR = os.path.join(os.path.dirname(__file__), 'output')
-ANTIEGG_CEO    = os.getenv('ANTIEGG_CEO', 'ANTIEGG 대표')
-ANTIEGG_BIZ_NO = os.getenv('ANTIEGG_BIZ_NO', '000-00-00000')
-ANTIEGG_PHONE  = os.getenv('ANTIEGG_PHONE', '')
-ANTIEGG_EMAIL  = os.getenv('ANTIEGG_EMAIL', os.getenv('DIRECTOR_EMAIL', ''))
-ANTIEGG_ADDR   = os.getenv('ANTIEGG_ADDR', '')
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+
+def _antiegg_info() -> dict:
+    return {
+        'ceo':    settings.get('ANTIEGG_CEO', 'ANTIEGG 대표'),
+        'biz_no': settings.get('ANTIEGG_BIZ_NO', '000-00-00000'),
+        'phone':  settings.get('ANTIEGG_PHONE'),
+        'email':  settings.get('ANTIEGG_EMAIL') or settings.get('DIRECTOR_EMAIL'),
+        'addr':   settings.get('ANTIEGG_ADDR'),
+    }
 
 # ── 스타일 헬퍼 ────────────────────────────────────────────────────────────────
 
@@ -77,6 +81,13 @@ def _next_quote_slot(deal: dict) -> tuple:
 
 def generate_quote(deal: dict) -> tuple:
     """견적서 생성. (저장 컬럼명, 파일 경로) 반환."""
+    ant = _antiegg_info()
+    ANTIEGG_CEO    = ant['ceo']
+    ANTIEGG_BIZ_NO = ant['biz_no']
+    ANTIEGG_PHONE  = ant['phone']
+    ANTIEGG_EMAIL  = ant['email']
+    ANTIEGG_ADDR   = ant['addr']
+
     col, path = _next_quote_slot(deal)
 
     unit_price  = _parse_number(deal.get('cond_unit_price'))
@@ -222,6 +233,12 @@ def _article(doc, title: str, body: str):
 
 def generate_contract(deal: dict) -> tuple:
     """계약서 생성. (저장 컬럼명, 파일 경로) 반환."""
+    ant = _antiegg_info()
+    ANTIEGG_CEO    = ant['ceo']
+    ANTIEGG_BIZ_NO = ant['biz_no']
+    ANTIEGG_PHONE  = ant['phone']
+    ANTIEGG_EMAIL  = ant['email']
+
     col, path = _next_contract_slot(deal)
 
     unit_price = _parse_number(deal.get('cond_unit_price'))

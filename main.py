@@ -12,6 +12,7 @@ from dotenv import load_dotenv
 import db
 from app.services import scheduler as sched
 from app.services import ai
+from app.services import settings
 from app.integrations import slack
 
 load_dotenv()
@@ -366,6 +367,23 @@ async def search(request: Request, q: str = ''):
         'stage_abbr': STAGE_ABBR,
     })
 
+# ── 세팅 ──────────────────────────────────────────────────────────────────────
+
+@app.get('/settings', response_class=HTMLResponse)
+async def settings_page(request: Request):
+    return templates.TemplateResponse('settings.html', {
+        'request': request,
+        'groups':  settings.grouped_editable(),
+        'saved':   request.query_params.get('saved') == '1',
+    })
+
+@app.post('/settings')
+async def settings_save(request: Request):
+    form = await request.form()
+    items = {k: form.get(k, '') for k in settings.EDITABLE_KEYS}
+    settings.set_many(items)
+    return RedirectResponse('/settings?saved=1', status_code=303)
+
 # ── 딜 수동 추가 ──────────────────────────────────────────────────────────────
 
 @app.get('/deals/new', response_class=HTMLResponse)
@@ -598,11 +616,11 @@ async def preview_quote(request: Request, deal_id: str):
         'total':       f'{total:,}',
         'quote_date':  today.strftime('%Y년 %m월 %d일'),
         'valid_until': (today + timedelta(days=30)).strftime('%Y년 %m월 %d일'),
-        'ceo':         os.getenv('ANTIEGG_CEO', ''),
-        'biz_no':      os.getenv('ANTIEGG_BIZ_NO', ''),
-        'phone':       os.getenv('ANTIEGG_PHONE', ''),
-        'email':       os.getenv('ANTIEGG_EMAIL', ''),
-        'addr':        os.getenv('ANTIEGG_ADDR', ''),
+        'ceo':         settings.get('ANTIEGG_CEO'),
+        'biz_no':      settings.get('ANTIEGG_BIZ_NO'),
+        'phone':       settings.get('ANTIEGG_PHONE'),
+        'email':       settings.get('ANTIEGG_EMAIL'),
+        'addr':        settings.get('ANTIEGG_ADDR'),
     })
 
 
@@ -629,11 +647,11 @@ async def preview_contract(request: Request, deal_id: str):
         'vat':      f'{vat:,}',
         'total':    f'{total:,}',
         'today':    datetime.now().strftime('%Y년 %m월 %d일'),
-        'ceo':      os.getenv('ANTIEGG_CEO', ''),
-        'biz_no':   os.getenv('ANTIEGG_BIZ_NO', ''),
-        'phone':    os.getenv('ANTIEGG_PHONE', ''),
-        'email':    os.getenv('ANTIEGG_EMAIL', ''),
-        'addr':     os.getenv('ANTIEGG_ADDR', ''),
+        'ceo':      settings.get('ANTIEGG_CEO'),
+        'biz_no':   settings.get('ANTIEGG_BIZ_NO'),
+        'phone':    settings.get('ANTIEGG_PHONE'),
+        'email':    settings.get('ANTIEGG_EMAIL'),
+        'addr':     settings.get('ANTIEGG_ADDR'),
     })
 
 

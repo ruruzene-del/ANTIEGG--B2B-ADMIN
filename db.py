@@ -80,6 +80,12 @@ def init_db():
         );
         CREATE INDEX IF NOT EXISTS idx_activities_deal_id ON activities(deal_id);
         CREATE INDEX IF NOT EXISTS idx_activities_created_at ON activities(created_at DESC);
+
+        CREATE TABLE IF NOT EXISTS settings (
+            key         TEXT PRIMARY KEY,
+            value       TEXT,
+            updated_at  TEXT
+        );
         """)
         for col in [
             'cond_company_addr', 'cond_company_ceo', 'cond_company_biz_no',
