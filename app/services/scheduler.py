@@ -9,6 +9,7 @@ from app.integrations import email_client
 from app.integrations import slack
 from app.services import ai
 from app.services import document
+from app.services import backup
 
 APP_BASE_URL = os.getenv('APP_BASE_URL', 'http://localhost:8000').rstrip('/')
 
@@ -223,6 +224,24 @@ def check_closed_lost():
         slack.notify_closed_lost(deal_id, deal['company'])
         logger.info(f'[closed_lost] 전환: {deal_id}')
 
+def daily_backup():
+    """매일 03:30: SQLite + ai_context 백업 (iCloud Drive 기본)."""
+    logger.info('[backup] 시작')
+    try:
+        result = backup.backup_now()
+        logger.info(
+            f'[backup] files={len(result["files"])} '
+            f'purged={len(result["purged"])} errors={len(result["errors"])}'
+        )
+        if result['errors']:
+            slack.notify_errors(
+                f'🔴 *backup 일부 실패*\n' + '\n'.join(result['errors'])
+            )
+    except Exception as e:
+        logger.error(f'[backup] 실패: {e}')
+        slack.notify_errors(f'🔴 *backup 전체 실패*\n{str(e)}')
+
+
 def ingest_sent_examples():
     """매일 03:00: Gmail 보낸편지함의 ANTIEGG 회신을 few-shot 예시로 흡수."""
     logger.info('[ingest_sent] 시작')
@@ -270,4 +289,5 @@ def create_scheduler() -> BackgroundScheduler:
     scheduler.add_job(daily_reminder,     CronTrigger(hour=9, minute=0),  id='reminder_morning')
     scheduler.add_job(daily_reminder,     CronTrigger(hour=18, minute=0), id='reminder_evening')
     scheduler.add_job(ingest_sent_examples, CronTrigger(hour=3, minute=0), id='ingest_sent_examples')
+    scheduler.add_job(daily_backup,         CronTrigger(hour=3, minute=30), id='daily_backup')
     return scheduler

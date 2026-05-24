@@ -13,6 +13,7 @@ import db
 from app.services import scheduler as sched
 from app.services import ai
 from app.services import settings
+from app.services import backup
 from app.integrations import slack
 
 load_dotenv()
@@ -371,10 +372,17 @@ async def search(request: Request, q: str = ''):
 
 @app.get('/settings', response_class=HTMLResponse)
 async def settings_page(request: Request):
+    backups = backup.list_backups()
     return templates.TemplateResponse('settings.html', {
         'request': request,
         'groups':  settings.grouped_editable(),
         'saved':   request.query_params.get('saved') == '1',
+        'backup_info': {
+            'dir':            str(backup.BACKUP_DIR),
+            'count':          len(backups),
+            'last':           backups[0] if backups else None,
+            'retention_days': backup.RETENTION_DAYS,
+        },
     })
 
 @app.post('/settings')
@@ -708,4 +716,33 @@ async def admin_ingest_sent(request: Request, background_tasks: BackgroundTasks,
         }})
         return resp
     return JSONResponse({'status': 'started', 'limit': limit}, status_code=202)
+
+# ── Admin: 백업 즉시 실행 ─────────────────────────────────────────────────────
+
+@app.post('/admin/backup')
+async def admin_backup(request: Request):
+    """SQLite + ai_context 백업을 즉시 실행. 작은 파일들이라 동기로 충분."""
+    try:
+        result = backup.backup_now()
+        ok = len(result['errors']) == 0
+        msg = f'백업 완료 — {len(result["files"])}개 파일 저장'
+        if result['purged']:
+            msg += f', {len(result["purged"])}개 정리'
+        if not ok:
+            msg += f' (에러 {len(result["errors"])}건)'
+    except Exception as e:
+        logging.exception('[admin/backup] 실패')
+        ok = False
+        msg = f'백업 실패: {e}'
+        result = {'errors': [str(e)], 'files': [], 'purged': []}
+
+    if request.headers.get('HX-Request'):
+        resp = HTMLResponse('', status_code=200 if ok else 500)
+        resp.headers['HX-Trigger'] = json.dumps({'toast': {
+            'message': msg,
+            'type':    'success' if ok else 'error',
+        }})
+        return resp
+    status = 200 if ok else 500
+    return JSONResponse({'ok': ok, 'message': msg, **result}, status_code=status)
 
