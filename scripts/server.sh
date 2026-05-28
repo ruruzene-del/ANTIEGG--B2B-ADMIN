@@ -11,7 +11,7 @@ ENV_FILE="$PROJECT_DIR/.env"
 NGROK_DOMAIN=$(grep "^NGROK_DOMAIN=" "$ENV_FILE" 2>/dev/null | head -1 | cut -d= -f2- | tr -d '"' | tr -d "'")
 
 cleanup() {
-  kill $LLAMA_PID $APP_PID $NGROK_PID $WATCHDOG_PID 2>/dev/null
+  kill $LLAMA_PID $APP_PID $NGROK_PID $WATCHDOG_PID $LLAMA_WD_PID 2>/dev/null
 }
 trap cleanup EXIT INT TERM
 
@@ -20,29 +20,39 @@ trap cleanup EXIT INT TERM
 /usr/sbin/lsof -ti:8080 | xargs kill -9 2>/dev/null || true
 /usr/sbin/lsof -ti:4040 | xargs kill -9 2>/dev/null || true
 
+start_llama() {
+  llama-server \
+    -m "$MODEL" \
+    --host 127.0.0.1 --port 8080 \
+    --ctx-size 4096 \
+    --n-gpu-layers 0 \
+    --threads 8 \
+    --log-disable \
+    >> "$LLAMA_LOG" 2>&1 &
+  LLAMA_PID=$!
+}
+
+# /health가 200 뜰 때까지 최대 300초 폴링 (콜드 로딩 ~45초)
+wait_llama_ready() {
+  for i in $(seq 1 60); do
+    sleep 5
+    if curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8080/health 2>/dev/null | grep -q "200"; then
+      return 0
+    fi
+  done
+  return 1
+}
+
 echo "[1/4] llama-server 시작 중..." >> "$APP_LOG"
-llama-server \
-  -m "$MODEL" \
-  --host 127.0.0.1 --port 8080 \
-  --ctx-size 4096 \
-  --n-gpu-layers 0 \
-  --threads 8 \
-  --log-disable \
-  >> "$LLAMA_LOG" 2>&1 &
-LLAMA_PID=$!
+start_llama
 
 echo "[2/4] llama-server 준비 대기 중..." >> "$APP_LOG"
-for i in $(seq 1 60); do
-  sleep 5
-  if curl -s -o /dev/null -w "%{http_code}" http://127.0.0.1:8080/health 2>/dev/null | grep -q "200"; then
-    echo "  준비 완료 ($((i*5))초)" >> "$APP_LOG"
-    break
-  fi
-  if [ $i -eq 60 ]; then
-    echo "  오류: llama-server 시작 실패" >> "$APP_LOG"
-    exit 1
-  fi
-done
+if wait_llama_ready; then
+  echo "  준비 완료" >> "$APP_LOG"
+else
+  echo "  오류: llama-server 시작 실패" >> "$APP_LOG"
+  exit 1
+fi
 
 echo "[3/4] FastAPI 시작 중..." >> "$APP_LOG"
 cd "$PROJECT_DIR"
@@ -100,7 +110,25 @@ ngrok_watchdog() {
 ngrok_watchdog &
 WATCHDOG_PID=$!
 
-echo "서버 실행 중 (launchd 관리, ngrok watchdog PID $WATCHDOG_PID)" >> "$APP_LOG"
+# llama-server watchdog — 프로세스가 죽으면 재시작 (CPU 모드 크래시 대응)
+# 헬스 200은 죽음 판정에 안 씀: CPU 추론이 요청당 3~5분이라 busy를 죽음으로 오인할 수 있어 kill -0(프로세스 생존)만 신호로 사용
+llama_watchdog() {
+  while sleep 60; do
+    if ! kill -0 $LLAMA_PID 2>/dev/null; then
+      echo "[$(date '+%H:%M:%S')] [watchdog] llama-server 죽음 → 재시작" >> "$APP_LOG"
+      start_llama
+      if wait_llama_ready; then
+        echo "[$(date '+%H:%M:%S')] [watchdog] llama-server 복구 완료" >> "$APP_LOG"
+      else
+        echo "[$(date '+%H:%M:%S')] [watchdog] llama-server 복구 실패 — 다음 주기 재시도" >> "$APP_LOG"
+      fi
+    fi
+  done
+}
+llama_watchdog &
+LLAMA_WD_PID=$!
+
+echo "서버 실행 중 (launchd 관리, ngrok wd $WATCHDOG_PID, llama wd $LLAMA_WD_PID)" >> "$APP_LOG"
 
 # launchd가 이 스크립트 생명주기를 관리 — uvicorn 종료 시 launchd가 재시작
 wait $APP_PID
