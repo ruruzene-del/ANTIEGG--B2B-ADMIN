@@ -16,6 +16,7 @@ from app.services import scheduler as sched
 from app.services import ai
 from app.services import settings
 from app.services import backup
+from app.services import log_rotate
 from app.services import examples as ex_svc
 from app.integrations import slack
 
@@ -522,6 +523,7 @@ async def health():
 @app.get('/settings', response_class=HTMLResponse)
 async def settings_page(request: Request):
     backups = backup.list_backups()
+    snapshots = log_rotate.list_snapshots()
     return templates.TemplateResponse('settings.html', {
         'request': request,
         'groups':  settings.grouped_editable(),
@@ -531,6 +533,13 @@ async def settings_page(request: Request):
             'count':          len(backups),
             'last':           backups[0] if backups else None,
             'retention_days': backup.RETENTION_DAYS,
+        },
+        'log_info': {
+            'targets':        [str(p.name) for p in log_rotate.TARGETS],
+            'count':          len(snapshots),
+            'last':           snapshots[0] if snapshots else None,
+            'retention_days': log_rotate.RETENTION_DAYS,
+            'min_bytes':      log_rotate.MIN_BYTES,
         },
     })
 
@@ -915,6 +924,37 @@ async def admin_backup(request: Request):
         ok = False
         msg = f'백업 실패: {e}'
         result = {'errors': [str(e)], 'files': [], 'purged': []}
+
+    if request.headers.get('HX-Request'):
+        resp = HTMLResponse('', status_code=200 if ok else 500)
+        resp.headers['HX-Trigger'] = json.dumps({'toast': {
+            'message': msg,
+            'type':    'success' if ok else 'error',
+        }})
+        return resp
+    status = 200 if ok else 500
+    return JSONResponse({'ok': ok, 'message': msg, **result}, status_code=status)
+
+@app.post('/admin/log-rotate')
+async def admin_log_rotate(request: Request):
+    """로그 회전(copytruncate)을 즉시 실행. min_bytes 미만은 스킵."""
+    try:
+        result = log_rotate.rotate_all()
+        ok = len(result['errors']) == 0
+        rot, skip = len(result['rotated']), len(result['skipped'])
+        if rot:
+            msg = f'로그 회전 완료 — {rot}개 회전'
+            if result['purged']:
+                msg += f', {len(result["purged"])}개 정리'
+        else:
+            msg = f'회전할 로그 없음 ({skip}개 모두 임계값 미만)'
+        if not ok:
+            msg += f' (에러 {len(result["errors"])}건)'
+    except Exception as e:
+        logging.exception('[admin/log-rotate] 실패')
+        ok = False
+        msg = f'로그 회전 실패: {e}'
+        result = {'errors': [str(e)], 'rotated': [], 'skipped': [], 'purged': []}
 
     if request.headers.get('HX-Request'):
         resp = HTMLResponse('', status_code=200 if ok else 500)

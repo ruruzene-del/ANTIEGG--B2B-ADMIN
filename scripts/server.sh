@@ -113,7 +113,7 @@ WATCHDOG_PID=$!
 # llama-server watchdog — 프로세스가 죽으면 재시작 (CPU 모드 크래시 대응)
 # 헬스 200은 죽음 판정에 안 씀: CPU 추론이 요청당 3~5분이라 busy를 죽음으로 오인할 수 있어 kill -0(프로세스 생존)만 신호로 사용
 llama_watchdog() {
-  while sleep 60; do
+  while sleep 30; do
     if ! kill -0 $LLAMA_PID 2>/dev/null; then
       echo "[$(date '+%H:%M:%S')] [watchdog] llama-server 죽음 → 재시작" >> "$APP_LOG"
       start_llama
