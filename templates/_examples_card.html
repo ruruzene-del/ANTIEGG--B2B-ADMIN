@@ -1,0 +1,52 @@
+<div class="ex-card" id="ex-{{ e.id }}">
+  <div class="ex-head">
+    <span class="ex-type">{{ e.inquiry_type or '기타' }}</span>
+    {% if e.source_subject %}
+    <span class="ex-source" title="{{ e.source_subject }} · {{ e.source_date }}">
+      Gmail · {{ e.source_subject }}
+    </span>
+    {% elif e.created_at %}
+    <span class="ex-source">수동 · {{ e.created_at[:10] }}{% if e.updated_at %} · 수정 {{ e.updated_at[:10] }}{% endif %}</span>
+    {% elif e.updated_at %}
+    <span class="ex-source">수정 {{ e.updated_at[:10] }}</span>
+    {% endif %}
+  </div>
+  {% if e.summary %}
+  <div class="ex-summary">{{ e.summary }}</div>
+  {% endif %}
+  <div class="ex-meta">담당자: {{ e.contact_name or '미상' }}</div>
+
+  <details class="ex-reply ex-view">
+    <summary>회신 본문 ({{ (e.reply or '')|length }}자)</summary>
+    <pre>{{ e.reply or '(없음)' }}</pre>
+  </details>
+
+  <form class="ex-edit"
+        hx-post="/examples/{{ e.id }}/update"
+        hx-target="#ex-{{ e.id }}"
+        hx-swap="outerHTML">
+    <label class="ex-edit-label">회신 본문 편집</label>
+    <textarea name="reply" rows="10" class="ex-edit-area">{{ e.reply or '' }}</textarea>
+    <div class="ex-edit-actions">
+      <button type="button" class="btn btn-ghost"
+              onclick="this.closest('.ex-card').classList.remove('editing')">취소</button>
+      <button type="submit" class="btn btn-primary">저장</button>
+    </div>
+  </form>
+
+  <div class="ex-actions ex-view">
+    <button type="button" class="btn btn-secondary"
+            onclick="this.closest('.ex-card').classList.add('editing')">
+      <i data-lucide="pencil" style="width:14px; height:14px;"></i>
+      <span>편집</span>
+    </button>
+    <button type="button" class="btn btn-danger"
+            hx-post="/examples/delete/{{ e.id }}"
+            hx-target="#ex-{{ e.id }}"
+            hx-swap="outerHTML"
+            hx-confirm="이 사례를 삭제하시겠어요? 되돌릴 수 없습니다.">
+      <i data-lucide="trash-2" style="width:14px; height:14px;"></i>
+      <span>삭제</span>
+    </button>
+  </div>
+</div>

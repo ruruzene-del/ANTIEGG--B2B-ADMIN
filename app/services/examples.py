@@ -71,6 +71,25 @@ def delete_by_id(ex_id: str) -> Optional[dict]:
     return target
 
 
+def update_reply(ex_id: str, reply: str) -> Optional[dict]:
+    """사례의 reply 본문만 갱신. 자동 분류 메타는 보존."""
+    data = _load()
+    _ensure_ids(data)
+    target = next((e for e in data.get('examples', []) if e.get('id') == ex_id), None)
+    if target is None:
+        return None
+    target['reply'] = reply.strip()
+    target['updated_at'] = time.strftime('%Y-%m-%dT%H:%M:%S')
+    _save(data)
+    return target
+
+
+def get_by_id(ex_id: str) -> Optional[dict]:
+    data = _load()
+    _ensure_ids(data)
+    return next((e for e in data.get('examples', []) if e.get('id') == ex_id), None)
+
+
 def add_manual(inquiry_type: str, summary: str, contact_name: str, reply: str) -> dict:
     data = _load()
     _ensure_ids(data)

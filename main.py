@@ -408,6 +408,23 @@ async def examples_delete(request: Request, ex_id: str):
         return resp
     return RedirectResponse('/examples', status_code=303)
 
+@app.post('/examples/{ex_id}/update')
+async def examples_update(request: Request, ex_id: str, reply: str = Form('')):
+    updated = ex_svc.update_reply(ex_id, reply)
+    if updated is None:
+        return HTMLResponse('Not found', status_code=404)
+    if request.headers.get('HX-Request'):
+        resp = templates.TemplateResponse('_examples_card.html', {
+            'request': request,
+            'e':       updated,
+        })
+        resp.headers['HX-Trigger'] = json.dumps({'toast': {
+            'message': '사례를 수정했습니다',
+            'type':    'success',
+        }})
+        return resp
+    return RedirectResponse('/examples', status_code=303)
+
 @app.get('/examples/new', response_class=HTMLResponse)
 async def examples_new_form(request: Request):
     return templates.TemplateResponse('examples_new.html', {

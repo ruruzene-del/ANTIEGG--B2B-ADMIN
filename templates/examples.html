@@ -69,6 +69,26 @@
     padding-top: var(--sp-2);
     border-top: 1px solid #F3F4F6;
   }
+  /* 편집 모드 토글 — 한 카드에 view/edit 두 마크업을 모두 렌더하고 클래스로 스위치 */
+  .ex-card .ex-edit { display: none; }
+  .ex-card.editing .ex-view { display: none; }
+  .ex-card.editing .ex-edit { display: block; }
+  .ex-edit-label {
+    display: block; font-size: 12px; color: var(--text-secondary);
+    margin: var(--sp-2) 0 var(--sp-1) 0;
+  }
+  .ex-edit-area {
+    width: 100%; font-family: var(--font); font-size: 13px;
+    line-height: 1.7; padding: var(--sp-3);
+    border: 1px solid var(--border); border-radius: var(--r-md);
+    background: var(--surface); color: var(--text-primary);
+    resize: vertical;
+  }
+  .ex-edit-area:focus { outline: 2px solid var(--primary); outline-offset: -1px; }
+  .ex-edit-actions {
+    display: flex; justify-content: flex-end; gap: var(--sp-2);
+    margin-top: var(--sp-3);
+  }
 </style>
 {% endblock %}
 
@@ -87,36 +107,7 @@
 {% if items %}
 <div class="ex-list">
   {% for e in items %}
-  <div class="ex-card" id="ex-{{ e.id }}">
-    <div class="ex-head">
-      <span class="ex-type">{{ e.inquiry_type or '기타' }}</span>
-      {% if e.source_subject %}
-      <span class="ex-source" title="{{ e.source_subject }} · {{ e.source_date }}">
-        Gmail · {{ e.source_subject }}
-      </span>
-      {% elif e.created_at %}
-      <span class="ex-source">수동 · {{ e.created_at[:10] }}</span>
-      {% endif %}
-    </div>
-    {% if e.summary %}
-    <div class="ex-summary">{{ e.summary }}</div>
-    {% endif %}
-    <div class="ex-meta">담당자: {{ e.contact_name or '미상' }}</div>
-    <details class="ex-reply">
-      <summary>회신 본문 ({{ (e.reply or '')|length }}자)</summary>
-      <pre>{{ e.reply or '(없음)' }}</pre>
-    </details>
-    <div class="ex-actions">
-      <button type="button" class="btn btn-danger"
-              hx-post="/examples/delete/{{ e.id }}"
-              hx-target="#ex-{{ e.id }}"
-              hx-swap="outerHTML"
-              hx-confirm="이 사례를 삭제하시겠어요? 되돌릴 수 없습니다.">
-        <i data-lucide="trash-2" style="width:14px; height:14px;"></i>
-        <span>삭제</span>
-      </button>
-    </div>
-  </div>
+    {% include '_examples_card.html' %}
   {% endfor %}
 </div>
 {% else %}
