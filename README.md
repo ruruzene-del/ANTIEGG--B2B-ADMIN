@@ -17,6 +17,8 @@ B2B 문의 접수 및 운영 자동화를 위한 AI 기반 시스템
 
 ## 운영
 
+종합 인수인계 문서: [`docs/HANDOVER.md`](docs/HANDOVER.md)
+
 ### 서버 재시작
 ```
 launchctl unload ~/Library/LaunchAgents/com.antiegg.b2b.plist
