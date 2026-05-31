@@ -65,23 +65,6 @@ def purge_old() -> List[str]:
     return removed
 
 
-def list_snapshots() -> List[dict]:
-    """회전된 스냅샷 파일 메타 — 세팅 페이지 표시용. 최신순."""
-    items = []
-    for target in TARGETS:
-        for p in target.parent.glob(f'{target.name}.*'):
-            if not p.is_file():
-                continue
-            st = p.stat()
-            items.append({
-                'name':  p.name,
-                'size':  st.st_size,
-                'mtime': datetime.fromtimestamp(st.st_mtime).isoformat(),
-            })
-    items.sort(key=lambda x: x['mtime'], reverse=True)
-    return items
-
-
 def rotate_all() -> dict:
     """전체 로그 회전 1회. 결과 dict 반환."""
     ts = _ts()

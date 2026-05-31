@@ -1,8 +1,6 @@
 import os
 import json
-import asyncio
 import logging
-import requests
 from app.services import scheduler as sched
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
@@ -16,7 +14,6 @@ from app.services import scheduler as sched
 from app.services import ai
 from app.services import settings
 from app.services import backup
-from app.services import log_rotate
 from app.services import examples as ex_svc
 from app.integrations import slack
 
@@ -454,76 +451,11 @@ async def errors_page(request: Request):
         'errors':  errors,
     })
 
-# ── 헬스 체크 ─────────────────────────────────────────────────────────────────
-
-@app.get('/health')
-async def health():
-    """운영 모니터링 — 서브시스템 상태 JSON. down이면 503."""
-    def _llama() -> bool:
-        try:
-            return requests.get('http://127.0.0.1:8080/health', timeout=3).status_code == 200
-        except Exception:
-            return False
-
-    def _db() -> bool:
-        try:
-            with db.get_conn() as conn:
-                conn.execute('SELECT 1').fetchone()
-            return True
-        except Exception:
-            return False
-
-    # 동기 체크 두 개는 스레드풀로 병렬 — 이벤트 루프 차단 방지
-    llama_ok, db_ok = await asyncio.gather(
-        asyncio.to_thread(_llama),
-        asyncio.to_thread(_db),
-    )
-
-    try:
-        since = (datetime.now() - timedelta(hours=24)).isoformat()
-        errors_24h = db.count_errors_since(since)
-    except Exception:
-        errors_24h = None
-
-    last_backup_iso = None
-    last_backup_hours = None
-    try:
-        b = backup.list_backups()
-        if b:
-            last_backup_iso = b[0]['mtime']
-            last_backup_hours = round(
-                (datetime.now() - datetime.fromisoformat(last_backup_iso)).total_seconds() / 3600, 1
-            )
-    except Exception:
-        pass
-
-    if not llama_ok or not db_ok:
-        status = 'down'
-    elif (errors_24h is not None and errors_24h >= 10) or \
-         (last_backup_hours is not None and last_backup_hours > 36):
-        status = 'degraded'
-    else:
-        status = 'ok'
-
-    return JSONResponse(
-        {
-            'status':            status,
-            'llama':             llama_ok,
-            'db':                db_ok,
-            'errors_24h':        errors_24h,
-            'last_backup':       last_backup_iso,
-            'last_backup_hours': last_backup_hours,
-            'time':              datetime.now().isoformat(timespec='seconds'),
-        },
-        status_code=503 if status == 'down' else 200,
-    )
-
 # ── 세팅 ──────────────────────────────────────────────────────────────────────
 
 @app.get('/settings', response_class=HTMLResponse)
 async def settings_page(request: Request):
     backups = backup.list_backups()
-    snapshots = log_rotate.list_snapshots()
     return templates.TemplateResponse('settings.html', {
         'request': request,
         'groups':  settings.grouped_editable(),
@@ -533,13 +465,6 @@ async def settings_page(request: Request):
             'count':          len(backups),
             'last':           backups[0] if backups else None,
             'retention_days': backup.RETENTION_DAYS,
-        },
-        'log_info': {
-            'targets':        [str(p.name) for p in log_rotate.TARGETS],
-            'count':          len(snapshots),
-            'last':           snapshots[0] if snapshots else None,
-            'retention_days': log_rotate.RETENTION_DAYS,
-            'min_bytes':      log_rotate.MIN_BYTES,
         },
     })
 
@@ -935,34 +860,4 @@ async def admin_backup(request: Request):
     status = 200 if ok else 500
     return JSONResponse({'ok': ok, 'message': msg, **result}, status_code=status)
 
-@app.post('/admin/log-rotate')
-async def admin_log_rotate(request: Request):
-    """로그 회전(copytruncate)을 즉시 실행. min_bytes 미만은 스킵."""
-    try:
-        result = log_rotate.rotate_all()
-        ok = len(result['errors']) == 0
-        rot, skip = len(result['rotated']), len(result['skipped'])
-        if rot:
-            msg = f'로그 회전 완료 — {rot}개 회전'
-            if result['purged']:
-                msg += f', {len(result["purged"])}개 정리'
-        else:
-            msg = f'회전할 로그 없음 ({skip}개 모두 임계값 미만)'
-        if not ok:
-            msg += f' (에러 {len(result["errors"])}건)'
-    except Exception as e:
-        logging.exception('[admin/log-rotate] 실패')
-        ok = False
-        msg = f'로그 회전 실패: {e}'
-        result = {'errors': [str(e)], 'rotated': [], 'skipped': [], 'purged': []}
-
-    if request.headers.get('HX-Request'):
-        resp = HTMLResponse('', status_code=200 if ok else 500)
-        resp.headers['HX-Trigger'] = json.dumps({'toast': {
-            'message': msg,
-            'type':    'success' if ok else 'error',
-        }})
-        return resp
-    status = 200 if ok else 500
-    return JSONResponse({'ok': ok, 'message': msg, **result}, status_code=status)
 
