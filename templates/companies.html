@@ -3,6 +3,25 @@
 
 {% block head_extra %}
 <style>
+  .companies-top {
+    display: flex; align-items: flex-end; justify-content: space-between;
+    gap: var(--sp-4); margin-bottom: var(--sp-6); flex-wrap: wrap;
+  }
+  .company-search {
+    width: 280px; max-width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--border); border-radius: 8px;
+    font-size: 13px; color: var(--text-primary);
+    background: var(--surface);
+  }
+  .company-search:focus { outline: none; border-color: #2563EB; }
+
+  .company-section-label {
+    font-size: 12px; font-weight: 600; color: var(--text-secondary);
+    margin: var(--sp-5) 0 var(--sp-2); letter-spacing: 0.02em;
+  }
+  .company-section-label:first-of-type { margin-top: 0; }
+
   .company-list {
     background: var(--surface);
     border: 1px solid var(--border);
@@ -48,33 +67,119 @@
     font-size: 12px; color: var(--text-muted);
     text-align: right;
   }
+
+  /* 아카이브 접기 */
+  .company-archive { margin-top: var(--sp-5); }
+  .company-archive > summary {
+    cursor: pointer; list-style: none;
+    font-size: 13px; font-weight: 600; color: var(--text-secondary);
+    padding: var(--sp-3) var(--sp-4);
+    border: 1px solid var(--border); border-radius: 8px;
+    background: #FAFAFA;
+    display: flex; align-items: center; gap: 8px;
+    user-select: none;
+  }
+  .company-archive > summary::-webkit-details-marker { display: none; }
+  .company-archive > summary::before { content: '▸'; color: var(--text-muted); }
+  .company-archive[open] > summary::before { content: '▾'; }
+  .company-archive > summary:hover { background: #F3F4F6; }
+  .company-archive .company-list { margin-top: var(--sp-3); }
+
+  .company-empty {
+    padding: var(--sp-4) var(--sp-5);
+    font-size: 13px; color: var(--text-muted);
+    background: var(--surface);
+    border: 1px solid var(--border); border-radius: var(--r-lg);
+  }
+  #company-noresult { display: none; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="mb-6">
-  <h1 class="h-page">회사</h1>
-  <div class="text-meta mt-2">총 {{ total }}개 회사</div>
+{% set active_companies = companies | selectattr('active') | list %}
+{% set archive_companies = companies | rejectattr('active') | list %}
+
+<div class="companies-top">
+  <div>
+    <h1 class="h-page">회사</h1>
+    <div class="text-meta mt-2">총 {{ total }}개 · 진행중 {{ active_companies | length }}</div>
+  </div>
+  <input type="text" id="company-search" class="company-search"
+         placeholder="회사 검색…" autocomplete="off" spellcheck="false">
 </div>
 
 {% if companies %}
-<div class="company-list">
-  <div class="company-list-head">
-    <span>회사명</span>
-    <span>진행중</span>
-    <span>총</span>
-    <span style="text-align: right;">마지막 활동</span>
-  </div>
-  {% for c in companies %}
-  <a href="/companies/{{ c.company|urlencode }}" class="company-item">
+{% macro company_row(c) %}
+  <a href="/companies/{{ c.company|urlencode }}" class="company-item"
+     data-name="{{ c.company|lower }}">
     <span class="company-item-name">{{ c.company }}</span>
     <span class="company-item-num {% if c.active %}active{% else %}zero{% endif %}">{{ c.active }}</span>
     <span class="company-item-num">{{ c.total }}</span>
     <span class="company-item-time">{{ c.last_activity | relative_time }}</span>
   </a>
-  {% endfor %}
+{% endmacro %}
+
+<!-- 진행중 -->
+<div class="company-section-label">진행중 ({{ active_companies | length }})</div>
+{% if active_companies %}
+<div class="company-list" id="active-list">
+  <div class="company-list-head">
+    <span>회사명</span><span>진행중</span><span>총</span>
+    <span style="text-align: right;">마지막 활동</span>
+  </div>
+  {% for c in active_companies %}{{ company_row(c) }}{% endfor %}
 </div>
+{% else %}
+<div class="company-empty">진행중인 딜이 있는 회사가 없습니다.</div>
+{% endif %}
+
+<!-- 종료/아카이브 (접힘) -->
+{% if archive_companies %}
+<details class="company-archive" id="archive-block">
+  <summary>종료/아카이브 {{ archive_companies | length }}개 보기</summary>
+  <div class="company-list">
+    <div class="company-list-head">
+      <span>회사명</span><span>진행중</span><span>총</span>
+      <span style="text-align: right;">마지막 활동</span>
+    </div>
+    {% for c in archive_companies %}{{ company_row(c) }}{% endfor %}
+  </div>
+</details>
+{% endif %}
+
+<div class="company-empty" id="company-noresult">검색 결과가 없습니다.</div>
 {% else %}
 <div class="empty">아직 등록된 회사가 없습니다.</div>
 {% endif %}
+
+<script>
+  (function () {
+    const search  = document.getElementById('company-search');
+    if (!search) return;
+    const archive = document.getElementById('archive-block');
+    const noResult = document.getElementById('company-noresult');
+    let archivePrevOpen = false;
+
+    search.addEventListener('input', function () {
+      const q = search.value.trim().toLowerCase();
+      let shown = 0;
+      document.querySelectorAll('.company-item').forEach(function (el) {
+        const match = !q || (el.dataset.name || '').includes(q);
+        el.style.display = match ? '' : 'none';
+        if (match) shown++;
+      });
+      // 검색 중에는 아카이브 펼쳐서 같이 필터, 비우면 원상복구
+      if (archive) {
+        if (q) {
+          if (!search.dataset.searching) { archivePrevOpen = archive.open; search.dataset.searching = '1'; }
+          archive.open = true;
+        } else if (search.dataset.searching) {
+          archive.open = archivePrevOpen;
+          delete search.dataset.searching;
+        }
+      }
+      if (noResult) noResult.style.display = (q && shown === 0) ? '' : 'none';
+    });
+  })();
+</script>
 {% endblock %}
