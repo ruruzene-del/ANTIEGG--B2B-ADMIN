@@ -826,13 +826,6 @@
       <i data-lucide="plus"></i>
       <span>딜 추가</span>
     </a>
-    <button class="topbar-action" type="button"
-            hx-post="/admin/ingest-sent?limit=10"
-            hx-swap="none"
-            title="Gmail 보낸편지함에서 ANTIEGG 회신을 가져와 few-shot 사례로 추가 (백그라운드)">
-      <i data-lucide="refresh-cw"></i>
-      <span>사례 갱신</span>
-    </button>
     <button class="topbar-cmdk" type="button" onclick="openSearch()">
       <i data-lucide="search" style="width:14px; height:14px;"></i>
       <span>검색</span>
@@ -855,10 +848,6 @@
     <a href="/companies" class="nav-item {% if request.url.path.startswith('/companies') %}active{% endif %}">
       <i data-lucide="building-2" class="icon"></i>
       <span>회사</span>
-    </a>
-    <a href="/examples" class="nav-item {% if request.url.path.startswith('/examples') %}active{% endif %}">
-      <i data-lucide="book-open" class="icon"></i>
-      <span>사례</span>
     </a>
     <a href="/settings" class="nav-item {% if request.url.path == '/settings' %}active{% endif %}">
       <i data-lucide="settings" class="icon"></i>
