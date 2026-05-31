@@ -1,6 +1,8 @@
 import os
 import json
+import asyncio
 import logging
+import requests
 from app.services import scheduler as sched
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
@@ -433,6 +435,70 @@ async def errors_page(request: Request):
         'request': request,
         'errors':  errors,
     })
+
+# ── 헬스 체크 ─────────────────────────────────────────────────────────────────
+
+@app.get('/health')
+async def health():
+    """운영 모니터링 — 서브시스템 상태 JSON. down이면 503."""
+    def _llama() -> bool:
+        try:
+            return requests.get('http://127.0.0.1:8080/health', timeout=3).status_code == 200
+        except Exception:
+            return False
+
+    def _db() -> bool:
+        try:
+            with db.get_conn() as conn:
+                conn.execute('SELECT 1').fetchone()
+            return True
+        except Exception:
+            return False
+
+    # 동기 체크 두 개는 스레드풀로 병렬 — 이벤트 루프 차단 방지
+    llama_ok, db_ok = await asyncio.gather(
+        asyncio.to_thread(_llama),
+        asyncio.to_thread(_db),
+    )
+
+    try:
+        since = (datetime.now() - timedelta(hours=24)).isoformat()
+        errors_24h = db.count_errors_since(since)
+    except Exception:
+        errors_24h = None
+
+    last_backup_iso = None
+    last_backup_hours = None
+    try:
+        b = backup.list_backups()
+        if b:
+            last_backup_iso = b[0]['mtime']
+            last_backup_hours = round(
+                (datetime.now() - datetime.fromisoformat(last_backup_iso)).total_seconds() / 3600, 1
+            )
+    except Exception:
+        pass
+
+    if not llama_ok or not db_ok:
+        status = 'down'
+    elif (errors_24h is not None and errors_24h >= 10) or \
+         (last_backup_hours is not None and last_backup_hours > 36):
+        status = 'degraded'
+    else:
+        status = 'ok'
+
+    return JSONResponse(
+        {
+            'status':            status,
+            'llama':             llama_ok,
+            'db':                db_ok,
+            'errors_24h':        errors_24h,
+            'last_backup':       last_backup_iso,
+            'last_backup_hours': last_backup_hours,
+            'time':              datetime.now().isoformat(timespec='seconds'),
+        },
+        status_code=503 if status == 'down' else 200,
+    )
 
 # ── 세팅 ──────────────────────────────────────────────────────────────────────
 
