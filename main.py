@@ -55,6 +55,36 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 templates = Jinja2Templates(directory='templates')
 
+# ── Basic Auth ────────────────────────────────────────────────────────────
+# /sign/* (고객 전자서명)은 인증 제외. 그 외 모든 어드민 경로는 비밀번호 보호.
+# ADMIN_PASSWORD 미설정 시 인증 비활성(잠김 방지).
+import base64
+import secrets as _secrets
+
+_ADMIN_USER = os.getenv('ADMIN_USER', 'antiegg')
+_ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD', '')
+_PUBLIC_PREFIXES = ('/sign',)
+
+@app.middleware('http')
+async def basic_auth(request: Request, call_next):
+    path = request.url.path
+    if _ADMIN_PASSWORD and not path.startswith(_PUBLIC_PREFIXES):
+        auth = request.headers.get('Authorization', '')
+        ok = False
+        if auth.startswith('Basic '):
+            try:
+                u, _, p = base64.b64decode(auth[6:]).decode('utf-8').partition(':')
+                ok = (_secrets.compare_digest(u, _ADMIN_USER)
+                      and _secrets.compare_digest(p, _ADMIN_PASSWORD))
+            except Exception:
+                ok = False
+        if not ok:
+            return HTMLResponse(
+                '인증이 필요합니다', status_code=401,
+                headers={'WWW-Authenticate': 'Basic realm="ANTIEGG B2B"'},
+            )
+    return await call_next(request)
+
 # ── v2: Jinja 필터 ──────────────────────────────────────────────────────
 def _relative_time(value):
     """ISO 시간 문자열을 상대 시간으로. 예: '2시간 전', '어제', '5/14'"""
