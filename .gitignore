@@ -14,3 +14,7 @@ venv/
 app.log
 llama-server.log
 .pids
+
+# Tailscale 인증서 부산물
+*.ts.net.crt
+*.ts.net.key

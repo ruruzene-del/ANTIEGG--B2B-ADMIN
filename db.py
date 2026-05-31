@@ -176,6 +176,13 @@ def update_deal(deal_id: str, fields: dict):
             {**fields, 'deal_id': deal_id}
         )
 
+def delete_deal(deal_id: str) -> bool:
+    """딜 + 연결된 activities 영구 삭제. 존재했으면 True."""
+    with get_conn() as conn:
+        cur = conn.execute('DELETE FROM deals WHERE deal_id = ?', (deal_id,))
+        conn.execute('DELETE FROM activities WHERE deal_id = ?', (deal_id,))
+        return cur.rowcount > 0
+
 def get_deals_by_trigger(trigger_col: str, status: str = 'PENDING') -> list:
     with get_conn() as conn:
         rows = conn.execute(

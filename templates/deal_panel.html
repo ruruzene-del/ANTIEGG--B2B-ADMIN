@@ -342,4 +342,14 @@
     </div>
   </details>
 
+  <div class="panel-danger">
+    <button type="button" class="btn-delete-deal"
+            hx-post="/deals/{{ deal.deal_id }}/delete"
+            hx-swap="none"
+            hx-confirm="'{{ deal.company }}' 딜을 영구 삭제할까요? 되돌릴 수 없습니다.">
+      <i data-lucide="trash-2" style="width:15px;height:15px;"></i>
+      이 딜 삭제
+    </button>
+  </div>
+
 </div>

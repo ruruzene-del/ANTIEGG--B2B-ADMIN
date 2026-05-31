@@ -557,6 +557,23 @@ async def deal_detail(deal_id: str):
         return HTMLResponse('딜을 찾을 수 없습니다', status_code=404)
     return RedirectResponse(url=f'/?open={deal_id}', status_code=302)
 
+@app.post('/deals/{deal_id}/delete')
+async def delete_deal(request: Request, deal_id: str):
+    """딜 영구 삭제 — 패널 닫고 목록 갱신."""
+    deal = db.get_deal(deal_id)
+    if not deal:
+        return HTMLResponse('딜을 찾을 수 없습니다', status_code=404)
+    db.delete_deal(deal_id)
+    if request.headers.get('HX-Request'):
+        resp = HTMLResponse('', status_code=200)
+        resp.headers['HX-Trigger'] = json.dumps({
+            'dealDeleted': {'deal_id': deal_id},
+            'toast': {'message': f'{deal.get("company") or deal_id} 딜을 삭제했습니다',
+                      'type': 'success'},
+        })
+        return resp
+    return RedirectResponse('/', status_code=303)
+
 # ── Stage 변경 ────────────────────────────────────────────────────────────────
 
 @app.post('/deals/{deal_id}/stage')

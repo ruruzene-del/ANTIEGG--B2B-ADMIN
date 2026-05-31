@@ -389,6 +389,27 @@
       flex: 1;
     }
 
+    .panel-danger {
+      margin-top: 32px;
+      padding-top: 20px;
+      border-top: 1px solid var(--border);
+    }
+    .btn-delete-deal {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 8px 14px;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--critical);
+      font-size: 13px; font-weight: 500;
+      cursor: pointer;
+      transition: background 120ms, border-color 120ms;
+    }
+    .btn-delete-deal:hover {
+      background: var(--critical);
+      border-color: var(--critical);
+      color: #fff;
+    }
     .panel-divider {
       height: 1px; background: var(--border);
       margin: var(--sp-5) 0;
@@ -1090,6 +1111,12 @@
     document.body.addEventListener('toast', (e) => {
       const d = e.detail || {};
       showToast(d.message || '', d.type || 'info', d.undo);
+    });
+
+    // 딜 삭제 — 패널 닫고 목록 갱신
+    document.body.addEventListener('dealDeleted', () => {
+      closePanel();
+      setTimeout(() => window.location.reload(), 350);
     });
   </script>
 
