@@ -52,6 +52,7 @@
 - APScheduler — FastAPI lifespan으로 기동, 14개 잡 (메일 폴링, 트리거 처리, 백업, 로그 회전 등)
 - Gmail IMAP — 수신 + Draft 저장 (SMTP 미사용, 앱 비밀번호 방식)
 - **Tailscale Funnel** — 외부 접근. userspace 모드 tailscaled를 별도 LaunchAgent로 띄우고, Funnel로 :8000을 공개 HTTPS로 노출. 무료·상시 연결(ngrok과 달리 2시간 끊김 없음). 인증서 자동(Let's Encrypt)
+- **인증** — 공개 URL은 HTTP Basic Auth로 보호(`main.py` 미들웨어, `ADMIN_USER`/`ADMIN_PASSWORD`). 로그인/권한 분리는 없는 단일 비밀번호 한 겹. 고객 전자서명 `/sign/*`만 예외
 
 > 외부 노출은 2026-05 ngrok에서 Tailscale Funnel로 전환됨. ngrok 관련 코드·watchdog은 `server.sh`에서 제거됨.
 
@@ -108,7 +109,8 @@ tailscale --socket=$SOCK funnel --bg 8000                            # 최초 1�
 |---|---|---|
 | Gmail 앱 비밀번호 | `.env` `GMAIL_APP_PASSWORD` | Google 계정 → 보안 → 2단계 인증 → 앱 비밀번호 |
 | Gmail 수신 라벨 | `.env` `B2B_LABEL` (기본 `B2B_INQUIRY`) | Gmail 필터로 B2B 문의를 해당 라벨로 자동 분류 |
-| Notion API | `.env` `NOTION_TOKEN` / `NOTION_DB_ID` | notion.so/my-integrations 내부 통합 토큰. 임포트용(6번 참고) |
+| **어드민 로그인** | `.env` `ADMIN_USER` / `ADMIN_PASSWORD` | 공개 URL HTTP Basic Auth. `/sign/*`(고객 서명)은 예외. 미설정 시 인증 비활성(잠김 방지). 변경 후 reload |
+| Notion API | `.env` `NOTION_TOKEN` / `NOTION_DB_ID` | notion.so/my-integrations 내부 통합 토큰. 임포트용(10번 참고) |
 | Tailscale 계정 | (계정) | nmwc.ai@ 개인 계정에 머신 `antiegg-b2b` 등록. Funnel 활성화는 tailnet당 1회 |
 | 회사/디렉터 정보 | `.env` fallback + `/settings` DB | settings 테이블 우선, .env 폴백 |
 | Slack Webhook | `.env` `SLACK_WEBHOOK` | **보류** — 워크스페이스 앱 한도 이슈 (8번 참고) |
@@ -303,9 +305,12 @@ launchctl load ~/Library/LaunchAgents/com.antiegg.b2b.plist
 `scripts/notion_import.py` — 노션 "B2B 대시보드 상세" DB를 deals로 적재. urllib만 사용(추가 의존성 없음).
 
 ```bash
-python3 scripts/notion_import.py          # 진단(읽기 전용): 행 수·현황 분포·매핑 미리보기
-python3 scripts/notion_import.py --apply  # 기존 deals/activities wipe 후 적재
+python3 scripts/notion_import.py            # 진단(읽기 전용): 행 수·현황 분포·매핑 미리보기
+python3 scripts/notion_import.py --apply    # 기존 deals/activities wipe 후 적재
+python3 scripts/notion_import.py --backfill # 비파괴: 견적용 cond_service_name/desc만 채움(빈 칸만)
 ```
+
+> `--backfill`: 견적서가 쓰는 `cond_service_name`(←상품) / `cond_service_desc`(←상품옵션)를 `notion_page_id` 매칭으로 채운다. 딜을 지우지 않고 빈 칸만 채우며 `updated_at`도 안 건드린다. 임포트 후 견적서에 서비스명이 비어 보일 때 사용.
 
 - `.env`의 `NOTION_TOKEN`(내부 통합) + `NOTION_DB_ID` 사용. 노션 DB를 통합에 Connections로 공유해야 API가 읽는다.
 - 현황(select) → stage 매핑: 진행완료→CLOSED_WON, 제안거절·미지정→CLOSED_LOST, 의견조율→NEGOTIATING, 제휴진행중→CONTRACTING.
