@@ -10,6 +10,7 @@ from app.integrations import slack
 from app.services import ai
 from app.services import document
 from app.services import backup
+from app.services import log_rotate
 
 APP_BASE_URL = os.getenv('APP_BASE_URL', 'http://localhost:8000').rstrip('/')
 
@@ -251,6 +252,24 @@ def purge_old_errors():
         logger.error(f'[purge_errors] 실패: {e}')
 
 
+def daily_log_rotate():
+    """매일 03:50: app/llama/ngrok 로그 회전 (copytruncate, 14일 보관)."""
+    logger.info('[log_rotate] 시작')
+    try:
+        result = log_rotate.rotate_all()
+        logger.info(
+            f'[log_rotate] rotated={len(result["rotated"])} '
+            f'purged={len(result["purged"])} errors={len(result["errors"])}'
+        )
+        if result['errors']:
+            slack.notify_errors(
+                f'🔴 *log_rotate 일부 실패*\n' + '\n'.join(result['errors'])
+            )
+    except Exception as e:
+        logger.error(f'[log_rotate] 실패: {e}')
+        slack.notify_errors(f'🔴 *log_rotate 전체 실패*\n{str(e)}')
+
+
 def ingest_sent_examples():
     """매일 03:00: Gmail 보낸편지함의 ANTIEGG 회신을 few-shot 예시로 흡수."""
     logger.info('[ingest_sent] 시작')
@@ -300,4 +319,5 @@ def create_scheduler() -> BackgroundScheduler:
     scheduler.add_job(ingest_sent_examples, CronTrigger(hour=3, minute=0), id='ingest_sent_examples')
     scheduler.add_job(daily_backup,         CronTrigger(hour=3, minute=30), id='daily_backup')
     scheduler.add_job(purge_old_errors,     CronTrigger(hour=3, minute=45), id='purge_old_errors')
+    scheduler.add_job(daily_log_rotate,     CronTrigger(hour=3, minute=50), id='daily_log_rotate')
     return scheduler
