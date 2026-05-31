@@ -137,6 +137,7 @@ def yyyymm(date_str):
 
 def main():
     apply = "--apply" in sys.argv
+    backfill = "--backfill" in sys.argv
     env = load_env()
     token = env.get("NOTION_TOKEN")
     db_id = env.get("NOTION_DB_ID")
@@ -183,8 +184,41 @@ def main():
         print(f"  - {m['company']!r} | {m['contact_name']} | {m['email']} | "
               f"{m['status_notion']}→{m['stage']} | {m['service_interest']}")
 
+    if backfill:
+        # 비파괴 백필: 견적서가 쓰는 cond_service_name/desc를 노션 상품/상품옵션으로 채움.
+        # notion_page_id로 매칭, 비어있는 칸만(수동 편집 보존), updated_at 등 다른 필드 무변경.
+        conn = sqlite3.connect(DB, timeout=10)
+        conn.execute("PRAGMA busy_timeout=10000")
+        filled = 0
+        for pg in rows:
+            prod = get(pg, "상품")
+            opt = get(pg, "상품 옵션")
+            if prod and opt:
+                name, desc = prod, opt
+            elif prod:
+                name, desc = prod, ""
+            elif opt:
+                name, desc = opt, ""
+            else:
+                continue
+            cur = conn.execute(
+                "UPDATE deals SET cond_service_name=?, cond_service_desc=? "
+                "WHERE notion_page_id=? "
+                "AND (cond_service_name IS NULL OR cond_service_name='')",
+                (name, desc, pg["id"]),
+            )
+            filled += cur.rowcount
+        conn.commit()
+        total = conn.execute(
+            "SELECT COUNT(*) FROM deals WHERE cond_service_name IS NOT NULL AND cond_service_name!=''"
+        ).fetchone()[0]
+        conn.close()
+        print(f"\n[backfill] cond_service_name/desc 신규 채움: {filled}건")
+        print(f"cond_service_name 채워진 총: {total}건")
+        return
+
     if not apply:
-        print("\n[inspect 모드] 적재 안 함. 실제 적재는 --apply")
+        print("\n[inspect 모드] 적재 안 함. 실제 적재는 --apply (백필만 하려면 --backfill)")
         return
 
     # ---- 적재 ----
