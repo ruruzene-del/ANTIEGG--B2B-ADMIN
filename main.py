@@ -148,7 +148,7 @@ PHASE_MAP = {
     'CONTRACTING': '견적·계약',
     'KNOCK_QUOTE': '견적·계약',
     'SIGNED':      '체결',
-    'CLOSED_WON':  '체결',
+    'CLOSED_WON':  '종료',
     'CLOSED_LOST': '종료',
 }
 PHASE_ORDER = ['새 문의', '응답·협상', '견적·계약', '체결']

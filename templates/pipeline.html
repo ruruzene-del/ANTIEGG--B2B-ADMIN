@@ -82,14 +82,14 @@
   <div>
     <h1 class="h-page">파이프라인</h1>
     <div class="text-meta mt-2">
-      활성 {{ active_count }}건{% if show_closed %} · 종료 {{ closed_count }}건{% endif %}
+      활성 {{ active_count }}건{% if show_closed %} · 완료·종료 {{ closed_count }}건{% endif %}
     </div>
   </div>
   <form method="get" action="/pipeline" class="pipeline-toggle">
     <input type="checkbox" id="show_closed" name="show_closed" value="true"
            {% if show_closed %}checked{% endif %}
            onchange="this.form.submit()">
-    <label for="show_closed">종료 표시</label>
+    <label for="show_closed">완료·종료 표시</label>
   </form>
 </div>
 
@@ -123,7 +123,7 @@
   {% if show_closed %}
   <div class="phase-col">
     <div class="phase-head">
-      <span class="phase-name">종료</span>
+      <span class="phase-name">완료·종료</span>
       <span class="phase-count">({{ closed_count }})</span>
     </div>
     {% for item in closed_lost %}
