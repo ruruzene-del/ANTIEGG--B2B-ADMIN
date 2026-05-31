@@ -1,5 +1,6 @@
 .env
 b2b.db
+b2b.db-*
 output/
 models/
 __pycache__/
@@ -9,6 +10,7 @@ venv/
 .DS_Store
 *.dmg
 *.log
+*.log.*
 app.log
 llama-server.log
 .pids

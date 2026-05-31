@@ -10,6 +10,8 @@ DB_PATH = os.path.join(os.path.dirname(__file__), 'b2b.db')
 def get_conn():
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
+    # busy_timeout은 per-connection이라 매번 설정 (journal_mode·synchronous는 init_db에서 DB 파일에 영구 저장)
+    conn.execute('PRAGMA busy_timeout = 5000')
     try:
         yield conn
         conn.commit()
@@ -21,6 +23,10 @@ def get_conn():
 
 def init_db():
     with get_conn() as conn:
+        # WAL 모드 — 읽기·쓰기 동시성 향상, scheduler 5분 쓰기 × 웹 요청 동시 접근 시 락 충돌 완화
+        # synchronous=NORMAL — WAL과 함께 쓰면 안전(크래시 시 최근 커밋 일부 손실 가능, 손상 없음)
+        conn.execute('PRAGMA journal_mode = WAL')
+        conn.execute('PRAGMA synchronous = NORMAL')
         conn.executescript("""
         CREATE TABLE IF NOT EXISTS deals (
             deal_id             TEXT PRIMARY KEY,
