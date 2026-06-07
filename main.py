@@ -916,4 +916,10 @@ async def admin_backup(request: Request):
 # from app.services import examples as ex_svc
 # from app.integrations import slack
 
+from fastapi import FastAPI
 
+app = FastAPI()
+
+@app.get("/")
+def health():
+    return {"status": "ok"}
