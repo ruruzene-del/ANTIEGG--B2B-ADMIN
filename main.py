@@ -21,12 +21,6 @@ load_dotenv()
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
-)
-try:
-    db.init_db()
-except Exception as _e:
-    logging.warning(f'init_db at import: {_e}')
-# db.init_db()
 
 from app.services.error_log import install_db_handler
 # install_db_handler()
