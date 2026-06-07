@@ -26,8 +26,10 @@ try:
     db.init_db()
 except Exception as _e:
     logging.warning(f'init_db at import: {_e}')
+# db.init_db()
+
 from app.services.error_log import install_db_handler
-install_db_handler()
+# install_db_handler()
 
 TRIGGER_COL_MAP = {
     'reply-send':    'trigger_reply_send',
