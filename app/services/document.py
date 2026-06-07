@@ -7,7 +7,7 @@ from docx.enum.table import WD_ALIGN_VERTICAL
 
 from app.services import settings
 
-OUTPUT_DIR = os.path.join(os.path.dirname(__file__), 'output')
+OUTPUT_DIR = '/tmp/antiegg-output' if os.getenv('VERCEL') else os.path.join(os.path.dirname(__file__), 'output')
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
