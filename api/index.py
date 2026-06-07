@@ -1,3 +1,4 @@
+from backend.supabase_client import supabase
 from fastapi import FastAPI
 
 app = FastAPI()
@@ -31,3 +32,8 @@ def deals_test():
             }
         ]
     }
+@app.get("/deals/db")
+def get_deals_db():
+    res = supabase.table("deals").select("*").execute()
+    return {"data": res.data}
+
