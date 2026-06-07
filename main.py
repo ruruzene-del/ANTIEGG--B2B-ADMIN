@@ -48,7 +48,10 @@ _scheduler = None
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _scheduler
-    db.init_db()
+    try:
+        db.init_db()
+    except Exception as _e:
+        logging.warning(f'lifespan init_db failed: {_e}')
     if not os.getenv('VERCEL'):
         _scheduler = sched.create_scheduler()
         _scheduler.start()
