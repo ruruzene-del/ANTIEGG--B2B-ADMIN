@@ -22,7 +22,10 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
 )
-db.init_db()  # DBErrorHandler가 의존하므로 등록 전에 테이블 준비
+try:
+    db.init_db()
+except Exception as _e:
+    logging.warning(f'init_db at import: {_e}')
 from app.services.error_log import install_db_handler
 install_db_handler()
 
@@ -46,8 +49,9 @@ _scheduler = None
 async def lifespan(app: FastAPI):
     global _scheduler
     db.init_db()
-    _scheduler = sched.create_scheduler()
-    _scheduler.start()
+    if not os.getenv('VERCEL'):
+        _scheduler = sched.create_scheduler()
+        _scheduler.start()
     yield
     if _scheduler:
         _scheduler.shutdown()
