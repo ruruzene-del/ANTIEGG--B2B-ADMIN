@@ -9,3 +9,7 @@ def health():
 @app.get("/ping")
 def ping():
     return {"pong": True}
+
+@app.get("/deals/test")
+def deals_test():
+    return {"data": [{"id": 1, "company": "ANTIEGG"}]}
