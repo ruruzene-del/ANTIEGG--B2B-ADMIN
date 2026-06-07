@@ -1,5 +1,7 @@
 from fastapi import FastAPI
-import db   # 👈 이거만 추가
+import db
+
+db.init_db()   
 
 app = FastAPI()
 
