@@ -1,104 +1,114 @@
-# ANTIEGG B2B ADMIN
+# ANTIEGG B2B 어드민 (클라우드)
 
-ANTIEGG의 B2B 문의 접수·제안·계약 전 과정을 운영하는 AI 기반 어드민.
-**"판단은 사람, 실행은 AI"** 원칙 — AI는 초안·문서를 만들고, 발송·단계 전환은 사람이 확정한다. (1인 디렉터, 월 5건 규모 기준)
+> B2B 문의 접수 → AI 회신 초안 → 견적·계약 → 딜 관리까지, **1인 디렉터의 영업 운영을 자동화하는 어드민**.
+> 원칙은 _"판단은 사람, 실행은 AI"_ — 메일 발송은 항상 사람이 확인하고 누른다.
 
-공개 주소: **https://antiegg-b2b.tail4297cb.ts.net** (Tailscale Funnel)
-
----
-
-## 핵심 기능
-
-- **문의 수집** — Gmail IMAP으로 B2B 라벨 메일을 폴링해 딜로 적재 (1시간 주기)
-- **AI 답장 초안** — Qwen2.5-7B(few-shot)가 회신 초안 생성 → Gmail 임시보관함에 저장. 사람이 검토·발송
-- **견적서·계약서** — HTML 미리보기 → 브라우저 인쇄(⌘P)로 PDF
-- **전자서명** — UUID 토큰 기반 `/sign/{token}` 웹페이지
-- **파이프라인 관리** — 인박스(오늘 할 일) · 칸반 파이프라인 · 회사별 이력
-- **AI 사례 자동 학습** — 보낸편지함의 ANTIEGG 회신을 분류해 few-shot 사례로 자동 축적 (매일 03:00)
-
-> Slack 알림은 코드만 있고 현재 **보류**(워크스페이스 앱 한도). 활성화 시 세팅에서 webhook 입력 예정.
-
-## 스택
-
-| 영역 | 사용 |
-|------|------|
-| 웹/어드민 | FastAPI + Jinja2 + HTMX |
-| DB | SQLite (WAL 모드) |
-| AI | llama.cpp(llama-server) + **Qwen2.5-7B-Instruct Q4_K_M**, CPU 모드 (M2 / macOS 13) |
-| 메일 | Gmail **IMAP** — 수신 + 초안(Draft) 저장. SMTP 미사용(앱 비밀번호) |
-| 스케줄러 | APScheduler |
-| 외부 노출 | **Tailscale Funnel** (userspace, 무료·상시 HTTPS) |
-| 서명 | 자체 UUID 토큰 + `/sign/{token}` |
-
-> ⚠️ Qwen 7B는 CPU 추론이라 호출당 약 3~5분 소요. Metal GPU는 해당 환경에서 크래시가 있어 CPU 전용.
-
-## 딜 단계 흐름
-
-```
-REVIEWING → REPLIED → NEGOTIATING → QUOTED → CONTRACTING → SIGNED → CLOSED_WON
-REPLIED/QUOTED ─(7일 무응답)→ KNOCK_* ─(7일)→ CLOSED_LOST
-```
-단계 전환은 전부 **수동**(자동 전환 없음). 트리거 상태: `IDLE → PENDING → PROCESSING → DONE | DRAFT | ERROR`.
+🔗 **배포**: https://antiegg-b2b-cloud.vercel.app _(어드민 접근은 내부 인증 필요)_
 
 ---
 
-## 실행 / 배포
+## 프로젝트 개요
 
-두 개의 LaunchAgent로 자동 기동된다(로그인 시 시작, KeepAlive).
+ANTIEGG의 B2B 제휴·도입 문의가 점점 늘면서, 문의 접수부터 회신·견적·계약까지의 운영을
+한 명이 빠르게 처리할 수 있도록 만든 내부 어드민이다.
 
-| LaunchAgent | 역할 |
-|-------------|------|
-| `com.antiegg.b2b` | `scripts/server.sh` → llama-server(:8080) + uvicorn(:8000) + watchdog |
-| `com.antiegg.tailscaled` | Tailscale 데몬(userspace) → Funnel로 :8000 공개 |
+- **자동 수신**: 홈페이지 문의 폼 → Notion → 어드민에 딜 자동 생성
+- **AI 회신 초안**: AI(무료 Gemini)가 문의를 요약하고 회신 초안을 작성 (사람이 검토 후 발송)
+- **문서·서명**: 딜 조건으로 견적서·계약서 즉시 생성(PDF·DOCX) + 고객 온라인 전자서명
+- **후속 자동화**: 무응답 고객 자동 노크(후속) + 추가 무응답 시 자동 종료
+- **현황 대시보드**: 성사율·계약액·문의 추이를 팀이 한눈에
 
-```bash
-# 수동 시작
-cd ~/antiegg-b2b && ./scripts/start.sh
+> 기존에는 운영자 PC에서 상시 가동(로컬 LLM + 스케줄러)되던 것을, **서버리스 클라우드로 전면
+> 재구축**해 어디서든 접속 가능하고 자동으로 굴러가게 만들었다.
 
-# 서버 재시작 (라우트 변경 반영)
-launchctl unload ~/Library/LaunchAgents/com.antiegg.b2b.plist
-launchctl load   ~/Library/LaunchAgents/com.antiegg.b2b.plist
+## 주요 기능
+
+| 영역 | 기능 |
+|---|---|
+| 📥 **자동 수신** | 폼 → Notion → 증분 동기화로 신규 문의 딜 생성 (일 1회 자동 + 수동 버튼) |
+| 🤖 **AI 회신** | Google Gemini(무료)로 문의 파싱 + 회신 초안 자동 작성 |
+| 📚 **보낸메일 학습** | 브랜드 계정 보낸함의 B2B 회신을 AI가 분류해 회신 초안 사례(few-shot)로 자동 학습 — 쌓일수록 초안 품질↑ |
+| 📊 **대시보드** | 전체 딜·성사율·계약액 합계·월별 문의 추이·단계별 분포 |
+| 🗂 **딜 관리** | 인박스·파이프라인(칸반)·회사별 보기·통합 검색(⌘K)·딜 CRUD |
+| 📄 **문서 생성** | 견적서·계약서 미리보기(PDF) + **DOCX 다운로드** |
+| ✍️ **전자서명** | 고객에게 서명 링크 전송 → 온라인 계약 서명 (고객은 로그인 불필요) |
+| 🔔 **노크(후속)** | 무응답 7일 → 노크 단계 + AI 노크 초안, 추가 7일 → 자동 종료 |
+| ✉️ **회신 발송** | 회신 초안을 **브랜드 계정(editor@antiegg.kr) 임시보관함**에 저장 (발송은 사람이) |
+| 💬 **Slack 알림** | 신규 문의 인입·동기화/백업 실패·에러를 Slack 채널로 통지 (선택, 웹훅·봇토큰) |
+| ♻️ **운영 자동화** | 매일 DB 백업(Gmail 발송) + 보낸메일 학습 + 에러 알림(실패 시 통지) |
+| 🔐 **접근 제어** | 어드민 전 구간 HTTP Basic Auth |
+
+## 기술 스택
+
+| 구분 | 사용 |
+|---|---|
+| **호스팅** | Vercel (서버리스, Python) + Vercel Cron |
+| **백엔드** | FastAPI · Jinja2 · HTMX |
+| **DB** | Supabase Postgres (transaction pooler) |
+| **AI** | Google Gemini (무료 티어, 기본) · Claude 폴백 — 문의 파싱·회신 초안 |
+| **연동** | Notion API (문의 동기화) · Gmail IMAP/SMTP (초안·백업·알림·학습) · Slack (알림, 선택) |
+| **CI/CD** | GitHub → Vercel 자동 배포 |
+
+## 시스템 구조
+
+```
+   홈페이지 문의 폼
+        │ (자동)
+        ▼
+     Notion DB ──────────┐
+                         │ 증분 동기화 (Cron 일1회 / 수동)
+                         ▼
+ ┌───────────────────────────────────────────┐
+ │   Vercel 서버리스  (FastAPI + Jinja/HTMX)   │
+ │   · Basic Auth   · 대시보드/딜/문서 라우트   │
+ └───────┬───────────────────┬────────────────┘
+         │                   │
+         ▼                   ▼
+ Supabase Postgres      Gemini(무료)/Claude
+  (딜·활동·설정·사례)     (파싱 · 회신 초안)
+         │
+         ▼ 매일 (Cron)
+   Notion 동기화 · 노크 점검 · 보낸메일 학습 · DB 백업 → Gmail
+   · 에러/신규문의 알림 → Gmail · Slack(선택)
 ```
 
-> **`main.py` 라우트를 바꾼 뒤엔 반드시 reload.** Jinja 템플릿은 디스크에서 hot-reload 되지만 라우트는 프로세스 시작 시 고정된다 — reload 없이는 신규 라우트가 404, 새 템플릿만 보이는 mixed-signal 상태가 된다. 재기동 시 llama 콜드 로딩 ~1분.
+> 고객 전자서명은 공개 페이지 `/sign/{token}`(인증 예외)로 제공된다.
 
-### 외부 노출 (Tailscale Funnel)
+**메일 계정 분리**: 고객 대면(회신·노크 초안 저장, 보낸메일 학습)은 **브랜드 계정
+`editor@antiegg.kr`**, 시스템 운영(백업·에러 알림)은 **운영 계정**을 쓴다.
+(`BRAND_GMAIL_*` 미설정 시 운영 계정으로 폴백)
 
-`APP_BASE_URL`(.env)에 ts.net 주소가 고정되어 있고, Funnel 설정은 tailscaled statedir에 영구 저장돼 데몬 재시작 시 자동 복구된다. 인증서는 자동(Let's Encrypt).
+**운영 흐름**: 폼 문의 → Notion 적재 → 동기화로 딜 생성 + AI 회신 초안 → 사람이 검토·수정 →
+브랜드 계정(editor) 임시보관함에서 발송 → 어드민에서 단계 변경.
 
-```bash
-tailscale --socket=/opt/homebrew/var/run/tailscaled.socket funnel status
-```
-> 이 맥에서 직접 `curl https://...ts.net`은 로컬 DNS 특성상 실패할 수 있다. 외부 도달 확인은 다른 망(LTE 등)에서. 커스텀 도메인(b2b.antiegg.kr)은 Funnel로는 불가 — 필요 시 Cloudflare Tunnel/유료 터널로 전환해야 한다.
+## 배포 링크
 
-## 자동 운영 잡 (APScheduler)
+- **어드민**: https://antiegg-b2b-cloud.vercel.app _(내부 인증 필요)_
+- **자동 배포**: `main` 브랜치 push 시 Vercel이 프로덕션 자동 배포
 
-| 시각 | 작업 |
-|------|------|
-| 매시 | Gmail 인박스 폴링 → 신규 딜 |
-| 5분 | 트리거 처리(reply / quote / contract / knock) |
-| 09:00 | 무응답 7일 → 노크 / 노크 후 7일 → CLOSED_LOST |
-| 03:00 | Gmail 보낸편지함 few-shot 사례 자동 수집 |
-| 03:30 | SQLite + ai_context 백업 (iCloud) |
-| 03:45 | 30일 지난 에러 로그 정리 |
-| 03:50 | 로그 회전 (copytruncate, 1MB↑, 14일 보관) |
+## 향후 개발 로드맵
 
-### llama-server watchdog
-`scripts/server.sh`의 `llama_watchdog`이 60초 주기로 `kill -0`로 프로세스 생존을 확인, 죽으면 자동 재시작. (헬스 200은 판정에 안 씀 — CPU 추론 3~5분 busy를 죽음으로 오인 방지)
+**1순위 — 상용화 기반**
+- [x] DB 자동 백업 (오프사이트)
+- [ ] Vercel Pro / Supabase 유료 전환 (상업용 약관·안정성)
+- [ ] 접근 권한 분리 (단일 비밀번호 → 계정/권한)
+- [ ] 개인정보 처리 정책
 
-## 데이터 임포트
+**2순위 — 운영 안정성**
+- [x] 에러/실패 알림
+- [x] 회신 발송 계정 정합 (editor@antiegg.kr 브랜드 계정 분리)
+- [ ] 자동 동기화 주기 단축 (실시간화)
 
-`scripts/notion_import.py` — 노션 "B2B 대시보드 상세" DB를 deals로 적재.
-```bash
-python3 scripts/notion_import.py          # 진단(읽기 전용)
-python3 scripts/notion_import.py --apply  # 기존 wipe 후 적재
-```
-`.env`의 `NOTION_TOKEN` / `NOTION_DB_ID` 사용. `notion_page_id` 컬럼으로 재동기화 대비.
+**3순위 — 기능 확장**
+- [x] 무응답 후속(노크) 자동화
+- [x] 고객 전자서명
+- [x] 견적/계약 DOCX 다운로드
+- [x] AI 회신 자동 생성 활성화 (무료 Google Gemini)
+- [x] 보낸메일 학습 (브랜드 계정 보낸함 B2B 회신 자동 학습 → 초안 품질↑)
+- [ ] Slack 알림 — *코드 완료, 웹훅/봇토큰 연결만 남음*
 
 ---
 
-## 운영 문서
-
-종합 인수인계: [`docs/HANDOVER.md`](docs/HANDOVER.md)
-
-비밀·데이터는 git에서 제외된다 — `.env`(토큰·앱 비밀번호), `b2b.db`(고객 데이터)는 `.gitignore`.
+<sub>현재 운영되는 클라우드 시스템의 소스·상세 현황은 별도 레포
+[`antiegg-b2b-cloud`](https://github.com/ruruzene-del/antiegg-b2b-cloud)에서 관리한다.
+(이 레포는 초기 로컬 버전에서 출발한 프로젝트 원본)</sub>
